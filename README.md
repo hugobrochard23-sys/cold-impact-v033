@@ -1,5 +1,10 @@
 # COLD IMPACT
 
+> **Instantané v033** (27 septembre 2026) du dépôt `hugobrochard23-sys/cold-impact.project`, figé tel quel pour pouvoir le rejouer et le tester.
+> **▶ Jouer à cette version : https://hugobrochard23-sys.github.io/cold-impact-v033/** — menu à trois boutons (CLASSIQUE, DÉFI, BOUTIQUE), couloir infini, 9 niveaux, générateur de missions.
+> Sur ordinateur, ajouter `#touch` à l'adresse pour afficher les commandes tactiles. Le lien « Jouer en ligne » plus bas pointe vers le dépôt d'origine, qui sert la version la plus récente.
+> Les deux sites partagent le même domaine `github.io` donc la même sauvegarde du navigateur : pour un premier lancement propre, utiliser une fenêtre privée.
+
 Prototype jouable en HTML/WebGL, inspiré de la bande-annonce du jeu *Dumbfire*.
 On pilote un missile qui ne s'arrête jamais : il suit le réticule, frôle les murs pour gagner du style et doit toucher la cible.
 
