@@ -13,6 +13,11 @@ cible. Inspiré de la bande-annonce du jeu *Dumbfire*. Tous les assets (textures
 > noms d'écrans : CLASSIQUE = CLASSIC, DÉFI = CHALLENGE, BOUTIQUE = SHOP, MISSIONS LIBRES = FREE MISSIONS, RÉGLAGES = SETTINGS,
 > NIVEAUX = LEVELS, RETOUR = back arrow, ÉQUIPER / ACHETER / PUB 1 MIN = EQUIP / BUY / AD 1 MIN, FACILE / MOYEN / DIFFICILE = EASY / MEDIUM / HARD.
 
+> **Style visuel (v033-gfx)** : deux rendus au choix — `classic` (celui d'origine, par défaut) et `real` (pixel-art réaliste : matériaux
+> physiques, reflets du ciel, étalonnage filmique, roquettes et cosmétiques détaillés). Réglage : RÉGLAGES → DISPLAY → VISUAL STYLE, ou
+> `?look=real` dans l'adresse. Comparatif image par image : `analysis/graphics/index.html` (curseur avant / après).
+> Code : `src/rendering/look.js` (matériaux, carte d'environnement, réglages `CC.Look.T`), `src/entities/rocket_real.js` (roquettes), `postfx.js` (étalonnage).
+
 ## Technologies
 
 - **three.js r149** (copie locale `assets/lib/three.min.js`) pour la 3D ; **JavaScript classique** (scripts chargés par `index.html`,

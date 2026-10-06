@@ -106,7 +106,7 @@
       ui.backButton(ctx, sx, hdrY, mt);
       const own = list.filter((s) => owned(s.id)).length, cnt = own + '/' + list.length, cph = mt * 0.64;
       const pw = CC.Font.measure(cnt, cph * 0.075) + cph * 1.35, gx0 = sx + mt * 1.2 + gap, gx1 = W - sx - pw - gap;   // le titre se centre entre le retour et le compteur
-      const tp = ui.fitPx(['SHOP'], (gx1 - gx0) * 0.88, HH * 0.0075), ty = hdrY + (mt - tp * 7) / 2, tcx = (gx0 + gx1) / 2;
+      const tp = ui.fitPx(['SHOP'], (gx1 - gx0) * 0.88, HH * 0.0058), ty = hdrY + (mt - tp * 7) / 2, tcx = (gx0 + gx1) / 2;
       ui.text(ctx, 'SHOP', tcx + tp * 0.8, ty + tp * 0.8, tp, '#05060a', { align: 'center', skew: -0.2, outline: null });
       ui.text(ctx, 'SHOP', tcx, ty, tp, col.white, { align: 'center', skew: -0.2 });
       this.pill(ctx, W - sx, hdrY + mt * 0.18, cph, cnt, col.yellow, '#10162a', function (c, x, y, s, color) { this.star(c, x, y, s * 1.5, true, color); }, true);

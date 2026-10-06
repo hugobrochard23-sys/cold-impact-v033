@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cold Impact - Classic vs Realistic</title>
+<style>
+  :root { --bg: #0b0e17; --panel: #131a2b; --ink: #f4f4f4; --dim: #9aa6c4; --yellow: #fdfd02; --blue: #8fd0ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  header { padding: 28px 20px 8px; max-width: 1180px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: 1px; }
+  h1 b { color: var(--yellow); }
+  p.lead { color: var(--dim); margin: 0 0 6px; max-width: 70ch; }
+  main { max-width: 1180px; margin: 0 auto; padding: 8px 20px 60px; }
+  h2 { margin: 34px 0 10px; font-size: 18px; color: var(--blue); letter-spacing: 1px; }
+  .card { background: var(--panel); border: 2px solid #26324f; padding: 10px; margin: 0 0 18px; }
+  .card h3 { margin: 2px 4px 8px; font-size: 14px; display: flex; justify-content: space-between; color: var(--ink); }
+  .card h3 span { color: var(--dim); font-weight: normal; }
+  .cmp { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; cursor: ew-resize; user-select: none; touch-action: pan-y; }
+  .cmp img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: auto; display: block; }
+  .cmp .top { clip-path: inset(0 0 0 var(--cut, 50%)); }
+  .cmp .bar { position: absolute; top: 0; bottom: 0; left: var(--cut, 50%); width: 3px; background: var(--yellow); box-shadow: 0 0 0 1px #000; }
+  .cmp .bar::after { content: '<>'; position: absolute; top: 50%; left: -16px; width: 35px; height: 28px; margin-top: -14px; background: var(--yellow); color: #111; font-weight: bold; text-align: center; line-height: 28px; }
+  .tag { position: absolute; top: 8px; padding: 3px 8px; font-size: 12px; font-weight: bold; background: rgba(0,0,0,.65); border: 1px solid #fff4; }
+  .tag.l { left: 8px; } .tag.r { right: 8px; color: var(--yellow); }
+  .cmp.tall { aspect-ratio: 390 / 470; }
+  .cmp.wide { aspect-ratio: 3 / 2; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+  .note { color: var(--dim); font-size: 13px; margin: 6px 4px 0; }
+  .toggle { display: flex; gap: 8px; margin: 12px 0 0; }
+  .toggle button { background: #1a2238; color: var(--ink); border: 2px solid #34436b; padding: 8px 14px; font: inherit; cursor: pointer; }
+  .toggle button.on { border-color: var(--yellow); color: var(--yellow); }
+</style>
+</head>
+<body>
+<header>
+  <h1>COLD IMPACT <b>/</b> CLASSIC vs REALISTIC</h1>
+  <p class="lead">Same frames, same game, two looks. Drag the yellow handle: left side = <b>classic</b> (current look), right side = <b>realistic</b> (new look: physical materials, sky reflections, filmic grading, detailed rockets).</p>
+  <p class="lead">In the game: <b>SETTINGS &rarr; DISPLAY &rarr; VISUAL STYLE</b>, or add <b>?look=real</b> to the address.</p>
+</header>
+<main id="main"></main>
+<script>
+  const SCENES = [
+    ['city', 'CITY', 'Street canyon in daylight'], ['brick', 'BRICKWORKS', 'Factory district'], ['canyon', 'CANYON', 'Dusk, low sun'],
+    ['cave', 'CAVE', 'Tunnel and lights'], ['woods', 'WOODS', 'Forest'], ['construction', 'CONSTRUCTION', 'Building site'],
+    ['night', 'NIGHT FOREST', 'Night'], ['endless', 'CLASSIC MODE', 'Endless corridor'], ['impact', 'IMPACT', 'Target destroyed'],
+  ];
+  const COSM = [['stock', 'STOCK'], ['titanite', 'TITANITE'], ['satanette', 'LITTLE SATAN'], ['baguette', 'BAGUETTE'], ['croissant', 'CROISSANT'], ['pebble', 'PEBBLE']];
+  const main = document.getElementById('main');
+  function pair(base, title, sub, cls) {
+    const c = document.createElement('div'); c.className = 'card';
+    c.innerHTML = '<h3>' + title + '<span>' + (sub || '') + '</span></h3><div class="cmp ' + (cls || '') + '" style="--cut:50%"><img src="classic_' + base + '.jpg" alt="classic"><img class="top" src="real_' + base + '.jpg" alt="realistic"><div class="bar"></div><span class="tag l">CLASSIC</span><span class="tag r">REALISTIC</span></div>';
+    const box = c.querySelector('.cmp');
+    const move = (e) => { const r = box.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; box.style.setProperty('--cut', Math.max(0, Math.min(100, x / r.width * 100)) + '%'); };
+    let down = false;
+    box.addEventListener('pointerdown', (e) => { down = true; move(e); box.setPointerCapture(e.pointerId); });
+    box.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') move(e); });
+    box.addEventListener('pointerup', () => { down = false; });
+    return c;
+  }
+  const h2 = (t) => { const h = document.createElement('h2'); h.textContent = t; main.appendChild(h); };
+  h2('COSMETICS - CLOSE-UPS');
+  const gc = document.createElement('div'); gc.className = 'grid'; gc.style.gridTemplateColumns = '1fr'; main.appendChild(gc);
+  gc.appendChild(pair('closeups', 'EIGHT COSMETICS', 'studio render, same pose', 'wide'));
+  h2('IN FLIGHT');
+  const g1 = document.createElement('div'); g1.className = 'grid'; main.appendChild(g1);
+  SCENES.forEach(([id, t, s]) => g1.appendChild(pair(id, t, s)));
+  fetch('cosmetics.json').then((r) => r.json()).then((list) => {
+    h2('COSMETICS (SHOP)');
+    const g2 = document.createElement('div'); g2.className = 'grid'; main.appendChild(g2);
+    g2.style.gridTemplateColumns = 'repeat(auto-fill, minmax(260px, 1fr))';
+    list.forEach(([id, name]) => g2.appendChild(pair('shop_' + id, name, 'shop screen', 'tall')));
+  }).catch(() => {});
+</script>
+</body>
+</html>

@@ -38,15 +38,16 @@
     mat(key) {
       if (this.materials.has(key)) return this.materials.get(key);
       let m;
+      const L = CC.Look;
       if (key.startsWith('basic:')) m = new THREE.MeshBasicMaterial({ color: key.slice(6), fog: true });
-      else if (key.startsWith('col:')) m = new THREE.MeshLambertMaterial({ color: key.slice(4), vertexColors: true });
-      else if (key === 'glass') m = new THREE.MeshLambertMaterial({ color: '#8fd0ff', transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
-      else if (key === 'glassWarm') m = new THREE.MeshLambertMaterial({ color: '#d8d28a', transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide });
-      else if (key.startsWith('emis:')) m = new THREE.MeshLambertMaterial({ color: key.slice(5), emissive: key.slice(5), emissiveIntensity: 0.8 });
+      else if (key.startsWith('col:')) m = L.lam({ color: key.slice(4), vertexColors: true });
+      else if (key === 'glass') m = L.glassPane({ color: '#8fd0ff', transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
+      else if (key === 'glassWarm') m = L.glassPane({ color: '#d8d28a', transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide });
+      else if (key.startsWith('emis:')) m = L.lam({ color: key.slice(5), emissive: key.slice(5), emissiveIntensity: 0.8 });
       else if (key.startsWith('cloud:')) m = new THREE.MeshBasicMaterial({ color: key.slice(6), fog: false, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false });
-      else if (key === 'chainlink') m = new THREE.MeshLambertMaterial({ map: CC.Textures.get(key), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });   // v032 : grillage (on voit à travers)
-      else if (key === 'water') m = new THREE.MeshLambertMaterial({ map: CC.Textures.get(key), vertexColors: true, emissive: '#0a1820', emissiveIntensity: 0.4 });
-      else m = new THREE.MeshLambertMaterial({ map: CC.Textures.get(key), vertexColors: true });
+      else if (key === 'chainlink') m = L.lam({ map: CC.Textures.get(key), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }, { roughness: 0.5, metalness: 0.6, env: 0.8 });   // v032 : grillage (on voit à travers)
+      else if (key === 'water') m = L.lam({ map: CC.Textures.get(key), vertexColors: true, emissive: '#0a1820', emissiveIntensity: 0.4 }, { roughness: 0.1, metalness: 0.3, env: 1.3 });
+      else { const sf = L.surface(key); m = L.lam(Object.assign({ map: CC.Textures.get(key), vertexColors: true }, sf ? sf.opts : {}), sf ? sf.tune : null); }
       this.materials.set(key, m);
       return m;
     }

@@ -3,7 +3,9 @@
 (function () {
   const V = THREE.Vector3;
   const mats = {};
-  const lam = (c, extra) => { const k = c + JSON.stringify(extra || {}); if (!mats[k]) mats[k] = new THREE.MeshLambertMaterial(Object.assign({ color: c }, extra || {})); return mats[k]; };
+  // v033-gfx : les matériaux viennent de CC.Look (Lambert d'origine ou Standard en mode réaliste) ; le cache est vidé au changement de style
+  const lam = (c, extra) => { const k = CC.Look.mode + c + JSON.stringify(extra || {}); if (!mats[k]) mats[k] = CC.Look.lam(Object.assign({ color: c }, extra || {})); return mats[k]; };
+  const metal = (c, rough) => { const k = CC.Look.mode + 'm' + c + rough; if (!mats[k]) mats[k] = CC.Look.metal({ color: c }, rough); return mats[k]; };
   const basic = (c, extra) => { const k = 'b' + c + JSON.stringify(extra || {}); if (!mats[k]) mats[k] = new THREE.MeshBasicMaterial(Object.assign({ color: c }, extra || {})); return mats[k]; };
 
   function box(w, h, d, mat, x, y, z, parent) {
@@ -25,7 +27,7 @@
    * tourelle, canon, rotor…) sont fusionnés séparément, chacun dans son propre repère, et restent animables.
    * Un char passe de ~80 appels de dessin à ~15, un hélicoptère de ~60 à ~12. */
   let vcMaterial = null;
-  const vcMat = () => vcMaterial || (vcMaterial = new THREE.MeshLambertMaterial({ color: '#ffffff', vertexColors: true }));
+  const vcMat = () => vcMaterial || (vcMaterial = CC.Look.lam({ color: '#ffffff', vertexColors: true }, { roughness: 0.72, env: 0.55 }));
   function bake(root, keep) {
     const keepSet = new Set(keep || []);
     const groups = [root, ...(keep || [])];
@@ -41,7 +43,7 @@
             let g = c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone();
             g.applyMatrix4(m);
             // Lambert uni → un seul matériau partagé à couleurs par sommet (la couleur de la pièce passe dans les sommets)
-            const plain = c.material.isMeshLambertMaterial && !c.material.map && !c.material.emissiveMap;
+            const plain = (c.material.isMeshLambertMaterial || (c.material.userData.look === 'std' && !c.material.metalness)) && !c.material.map && !c.material.emissiveMap;
             const k = plain ? 'vc' : c.material.uuid;
             if (!byMat.has(k)) byMat.set(k, { mat: plain ? vcMat() : c.material, geos: [], cast: false, vc: plain });
             const e = byMat.get(k); e.geos.push(g); e.cast = e.cast || c.castShadow;
@@ -83,8 +85,24 @@
    * v007 : le modèle est piloté par une fiche cosmétique (CC.Skins) — couleurs, dimensions, nombre d'ailerons et
    * pièces rapportées. Sans argument, on retombe exactement sur la roquette d'origine (`STOCK`). */
   const D2R = Math.PI / 180;
+  /* Jet de tuyère — disque incandescent au fond de la tuyère + deux cônes lumineux (cœur jaune, enveloppe orange) animés par
+   * Rocket.updateMesh (vacillement, allumage / coupure). Matériaux propres à chaque roquette. Renvoie { group, disc, core, outer }. */
+  M.makeJet = function (g, r, len) {
+    const jet = new THREE.Group(); jet.position.z = -len / 2 - 0.1; jet.visible = false; g.add(jet);   // allumé par Rocket.updateMesh
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(r * 0.6, 12), new THREE.MeshBasicMaterial({ color: '#fff2c0', transparent: true, opacity: 1 }));
+    disc.rotation.y = Math.PI; disc.position.z = 0.005; jet.add(disc);
+    const cone = (rad, h, color, op) => {
+      const m = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      m.geometry.translate(0, -h / 2, 0); m.rotation.x = Math.PI / 2;   // base à la tuyère, pointe vers l'arrière (−Z)
+      m.userData.op = op; jet.add(m); return m;
+    };
+    const core = cone(r * 0.5, 0.42, '#fff0b0', 0.9), outer = cone(r * 0.72, 0.8, '#ff9a30', 0.45);
+    return { group: jet, disc, core, outer };
+  };
+
   M.rocket = function (skin) {
     skin = skin || (CC.Skins && CC.Skins.get('stock'));
+    if (CC.Look.real() && M.rocketReal) return M.rocketReal(skin);   // v033-gfx : modèle détaillé (src/entities/rocket_real.js)
     const g = new THREE.Group();
     const c = skin ? skin.c : { body: '#c4c6c9', nose: '#c4c6c9', tip: '#e02a1c', band: '#f3cf00', fin: '#5d6065', nozzle: '#3d3f43' };
     const d = Object.assign({ r: 0.1, len: 0.86, noseLen: 0.3, noseR: 0.012, fins: 4, finH: 0.2, finW: 0.02, finPos: -0.33, scale: 1 }, (skin && skin.dims) || {});
@@ -102,18 +120,8 @@
     if (nr > 0.02) { const tip = cyl(nr * 0.55, nr, nr * 1.6, basic(c.tip), 8, g); tip.rotation.x = Math.PI / 2; tip.position.z = len / 2 + nl + nr * 0.6; tip.castShadow = false; }
     const band = cyl(r * 1.08, r * 1.08, 0.07, basic(c.band), 10, g); band.rotation.x = Math.PI / 2; band.position.z = -len * 0.35;
     const nozzle = cyl(r * 0.75, r * 0.6, 0.1, lam(c.nozzle), 10, g); nozzle.rotation.x = Math.PI / 2; nozzle.position.z = -len / 2 - 0.05;
-    // design : jet de la tuyère — disque incandescent au fond de la tuyère + deux cônes lumineux (cœur jaune, enveloppe
-    // orange) animés par Rocket.updateMesh (vacillement, allumage / coupure). Matériaux propres à chaque roquette.
-    const jet = new THREE.Group(); jet.position.z = -len / 2 - 0.1; jet.visible = false; g.add(jet);   // allumé par Rocket.updateMesh
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(r * 0.6, 12), new THREE.MeshBasicMaterial({ color: '#fff2c0', transparent: true, opacity: 1 }));
-    disc.rotation.y = Math.PI; disc.position.z = 0.005; jet.add(disc);
-    const cone = (rad, h, color, op) => {
-      const m = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      m.geometry.translate(0, -h / 2, 0); m.rotation.x = Math.PI / 2;   // base à la tuyère, pointe vers l'arrière (−Z)
-      m.userData.op = op; jet.add(m); return m;
-    };
-    const core = cone(r * 0.5, 0.42, '#fff0b0', 0.9), outer = cone(r * 0.72, 0.8, '#ff9a30', 0.45);
-    g.userData.jet = { group: jet, disc, core, outer };
+    const jetInfo = M.makeJet(g, r, len), jet = jetInfo.group;   // jet de tuyère (partagé avec la roquette réaliste)
+    g.userData.jet = jetInfo;
     for (let i = 0; i < d.fins; i++) {
       const f = new THREE.Group(); f.rotation.z = i * Math.PI * 2 / d.fins + Math.PI / 4; g.add(f);
       box(d.finW, d.finH, d.finH * 1.1, lam(c.fin), 0, r + d.finH * 0.35, d.finPos * fs, f);
@@ -318,9 +326,9 @@
    * vert à droite, blanc à la queue, gyrophare rouge). Camouflé : ailettes + paniers de roquettes. */
   M.helicopter = function (camo) {
     const g = new THREE.Group();
-    const skin = camo ? new THREE.MeshLambertMaterial({ map: CC.Textures.get('camo') }) : lam('#1f2024');
+    const skin = camo ? CC.Look.lam({ map: CC.Textures.get('camo') }) : lam('#1f2024');
     const trim = lam(camo ? '#4a4f35' : '#2b2d32'), dark = lam('#141416'), metal = lam('#3a3c40');
-    const glass = new THREE.MeshPhongMaterial({ color: '#1c2c3e', specular: '#9ab8d8', shininess: 60 });
+    const glass = CC.Look.glass({ color: '#1c2c3e', specular: '#9ab8d8', shininess: 60 });
     // fuselage (profil extrudé, arêtes chanfreinées)
     profileX([[-3.9, -0.12], [-3.55, -0.58], [-2.6, -0.86], [1.9, -0.86], [2.75, -0.35], [2.6, 0.55], [1.2, 0.86], [-1.4, 0.86], [-2.35, 0.6], [-3.55, 0.15]], 1.7, skin, 0.18, g);
     profileX([[-3.66, 0.08], [-2.34, 0.66], [-1.36, 0.9], [-1.28, 0.02], [-2.95, -0.28], [-3.74, -0.14]], 1.76, glass, 0.12, g);   // verrière
@@ -386,7 +394,7 @@
   M.truck = function () {
     const g = new THREE.Group();
     const olive = lam('#5d5f3e'), oliveD = lam('#4b4d33'), frame = lam('#2e2f24'), tire = lam('#141414'), hubM = lam('#3a3a32');
-    const glass = new THREE.MeshPhongMaterial({ color: '#233040', specular: '#8aa0b8', shininess: 50 });
+    const glass = CC.Look.glass({ color: '#233040', specular: '#8aa0b8', shininess: 50 });
     box(2.1, 0.28, 4.9, frame, 0, 0.72, 0, g);                                            // châssis
     box(2.35, 0.3, 0.2, frame, 0, 0.7, -2.5, g);                                          // pare-chocs
     box(2.2, 1.35, 1.35, olive, 0, 1.55, -1.55, g);                                       // cabine
@@ -421,7 +429,7 @@
     const wall = lam('#8e8f94'), trimM = lam('#b8b6ae'), base = lam('#5d5e62');
     box(6, 4, 7.5, wall, 0, 2, 0, g);
     box(6.1, 0.5, 7.6, base, 0, 0.25, 0, g);                                                  // soubassement
-    const roofMat = new THREE.MeshLambertMaterial({ map: CC.Textures.get('roofBrown') });
+    const roofMat = CC.Look.lam({ map: CC.Textures.get('roofBrown') });
     const r1 = box(4.5, 0.25, 8.3, roofMat, -1.6, 5.1, 0, g); r1.rotation.z = 0.62;
     const r2 = box(4.5, 0.25, 8.3, roofMat, 1.6, 5.1, 0, g); r2.rotation.z = -0.62;
     box(0.35, 0.3, 8.4, lam('#4d2618'), 0, 6.42, 0, g);                                       // faîtage
@@ -483,7 +491,7 @@
 
   // Disque d'accroche du grappin (OBSERVÉ séq. 1 : anneaux rouge/blanc/orange).
   M.bullseye = function (radius) {
-    const face = new THREE.MeshLambertMaterial({ map: CC.Textures.special('bullseye') });
+    const face = CC.Look.lam({ map: CC.Textures.special('bullseye') });
     const side = lam('#8a2a20');
     const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.25, 24), [side, face, face]);
     m.castShadow = true;
@@ -539,6 +547,8 @@
     return s;
   };
 
-  M.kit = { lam, basic, box, cyl, cylX, cylZ, profileX, plateY };   // v032 : pièces partagées avec models_gen.js
+  // vide le cache des matériaux (changement de style visuel) : les modèles construits ensuite utilisent les nouveaux
+  M.resetMaterials = function () { for (const k in mats) { if (mats[k].dispose) mats[k].dispose(); delete mats[k]; } if (vcMaterial) { vcMaterial.dispose(); vcMaterial = null; } };
+  M.kit = { lam, metal, basic, box, cyl, cylX, cylZ, profileX, plateY };   // v032 : pièces partagées avec models_gen.js
   CC.Models = M;
 })();

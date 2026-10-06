@@ -11,7 +11,7 @@
     box(2.2, 0.3, len, frame, 0, 0.75, 0, body);
     box(2.3, 1.3, 1.6, olive, 0, 1.55, -len / 2 + 0.9, body);                 // cabine
     box(2.1, 0.55, 0.9, dark, 0, 1.1, -len / 2 - 0.2, body);                   // capot
-    const glass = new THREE.MeshPhongMaterial({ color: '#233040', specular: '#8aa0b8', shininess: 50 });
+    const glass = CC.Look.glass({ color: '#233040', specular: '#8aa0b8', shininess: 50 });
     box(2.0, 0.55, 0.05, glass, 0, 1.95, -len / 2 + 0.08, body);
     for (const sx of [-1, 1]) {
       const hl = box(0.2, 0.16, 0.06, basic('#fff0c8'), sx * 0.75, 1.15, -len / 2 - 0.66, body); hl.castShadow = false;

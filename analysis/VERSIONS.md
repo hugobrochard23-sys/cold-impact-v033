@@ -593,3 +593,18 @@ Les identifiants (sauvegarde, `id` des cosmétiques, clés de réglages) ne chan
 Vérifié : parcours de tous les écrans en 360×640 sans texte qui déborde ni mot français affiché. Restent en français : la
 documentation, les commentaires du code et la page `politique-confidentialite.html` (texte juridique, non liée depuis le jeu).
 
+
+
+### v033-gfx — style visuel « réaliste » (au choix, le rendu d'origine reste celui par défaut)
+
+Un second rendu, activable sans toucher au gameplay (les 9 niveaux donnent exactement les mêmes temps dans les deux styles) :
+- **Matériaux physiques** (`CC.Look`) : Standard à la place de Lambert / Phong (rugosité, métal), vitres réfléchissantes, **cartes
+  rugosité / métal des façades** (les fenêtres reflètent le ciel), carte d'environnement du ciel du niveau (PMREM) ;
+- **Roquettes et cosmétiques** (`rocket_real.js`) : solides de révolution (nez en ogive, queue évasée), ailerons profilés, tuyère en
+  cloche, tores de joints ; **11 finitions** (peinture, mat, tôle brossée, chrome, laqué, camouflage, pain, pâte feuilletée, pierre,
+  carton, pelage) avec textures pixel-art dessinées par le code (rivets, soudures, pochoirs, rayures, suie vers la tuyère) ;
+- **Étalonnage** (`postfx.js`) : courbe filmique, hautes lumières chaudes / ombres froides, contraste et saturation ; rayons de
+  lumière vers le soleil ; boutique : « studio photo » (dôme + boîtes à lumière) pour les reflets des métaux ;
+- réglage RÉGLAGES → DISPLAY → VISUAL STYLE (CLASSIC / REALISTIC) ou `?look=real` ; paramètres d'ensemble ajustables en console
+  (`CC.Look.T.env`, `.exposure`, `.contrast`, `.sat`…) ; comparatif image par image dans `analysis/graphics/`.
+

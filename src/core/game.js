@@ -58,6 +58,7 @@
       this.targets = []; this.grapplePoints = []; this.entities = []; this.missiles = [];
       this.initEnvironment();
       this.loadSave();
+      CC.Look.set(P.get('look') || this.settings.look);   // v033-gfx : style visuel (classic | real), ?look=real dans l'adresse
       // v023 : volumes enregistrés (SOUND / MUSIC sur OFF) appliqués dès le démarrage, avant même que le son soit créé
       this.audio.setVolumes(CC.CONFIG.audio.master, this.settings.music, this.settings.sfx);
       this.applyCosmetic();
@@ -114,6 +115,9 @@
       this.sunDir = new V().fromArray(env.sun.dir).normalize();
       this.sun.castShadow = CC.CONFIG.render.shadows && env.sun.shadow !== false && this.shadowsAllowed !== false;
       this.postParams = Object.assign({}, CC.CONFIG.postfx, env.postfx || {});
+      // v033-gfx : style réaliste → reflets du ciel du niveau, lumières d'appoint réduites (la carte d'environnement éclaire déjà)
+      CC.Look.buildEnv(this);
+      if (CC.Look.real()) { this.hemi.intensity *= CC.Look.T.hemi; this.ambient.intensity *= CC.Look.T.amb; }
     }
 
     // ---------- sauvegarde / réglages ----------
@@ -127,7 +131,7 @@
       this.save.owned = this.save.owned || {};
       this.save.owned.stock = true;
       if (!this.save.owned[this.save.equipped]) this.save.equipped = 'stock';
-      this.settings = Object.assign({ sensitivity: CC.CONFIG.input.sensitivity, invertY: false, music: CC.CONFIG.audio.music, sfx: CC.CONFIG.audio.sfx, postfx: true, graphics: 'auto', vibration: 2, touchSens: 1 }, (s && s.settings) || {});
+      this.settings = Object.assign({ sensitivity: CC.CONFIG.input.sensitivity, invertY: false, music: CC.CONFIG.audio.music, sfx: CC.CONFIG.audio.sfx, postfx: true, graphics: 'auto', vibration: 2, touchSens: 1, look: 'classic' }, (s && s.settings) || {});
       if (this.testMode) this.settings.postfx = this.params.get('postfx') !== '0';
     }
     writeSave() {
@@ -136,6 +140,16 @@
       try { localStorage.setItem('coldimpact.save', JSON.stringify(this.save)); } catch (e) { /* stockage indisponible */ }
     }
     applySettings() { this.audio.setVolumes(CC.CONFIG.audio.master, this.settings.music, this.settings.sfx); if (CC.Haptics) CC.Haptics.setLevel(this.settings.vibration); this.writeSave(); }
+
+    // v033-gfx : change de style visuel ; le décor affiché est reconstruit dans le menu, sinon au prochain niveau
+    setLook(mode) {
+      CC.Look.set(mode); this.settings.look = CC.Look.mode;
+      CC.Models.resetMaterials(); CC.Look.resetMaps();
+      if (this.ui.shop) this.ui.shop.thumbs.reset();
+      this.applyCosmetic(); this.applySettings();
+      if (this.state === 'MENU') { this.loadLevel(this.levelIndex >= 0 ? this.levelIndex : 0); this.toMenu(); }
+      else this.ui.toast('STYLE APPLIES FROM THE NEXT LEVEL', '#8fd0ff', 3);
+    }
 
     // ---------- cosmétiques ----------
     applyCosmetic() { this.rocket.setSkin(CC.Skins.get(this.save.equipped)); }
@@ -660,7 +674,14 @@
       this.sun.target.position.copy(focus);
       this.sky.position.copy(this.camera.position);
       if (this.settings.postfx && this.postParams) {
-        this.postParams.flash = this.flash * 0.85; this.postParams.flashColor = this.flashColor || '#ffffff';
+        this.postParams.grade = CC.Look.real() ? 1 : 0;
+        if (CC.Look.real()) {   // rayons de lumière vers le soleil, visibles quand on le regarde à peu près en face
+          const f = this._sunV || (this._sunV = new V()), cam = this.camera;
+          f.copy(this.sunDir).multiplyScalar(500).add(cam.position).project(cam);
+          const facing = this.sunDir.dot(cam.getWorldDirection(this._sunD || (this._sunD = new V())));
+          this.postParams.shafts = facing > 0 && f.z < 1 ? CC.Look.T.shafts * Math.min(1, facing * 1.6) : 0;
+          this.postParams.sunUv = (this._sunUv || (this._sunUv = new THREE.Vector2())).set(f.x * 0.5 + 0.5, f.y * 0.5 + 0.5);
+        } else this.postParams.shafts = 0; this.postParams.exposure = CC.Look.T.exposure; this.postParams.contrast = CC.Look.T.contrast; this.postParams.gsat = CC.Look.T.sat; this.postParams.flash = this.flash * 0.85; this.postParams.flashColor = this.flashColor || '#ffffff';
         this.postfx.render(this.scene, this.camera, this.postParams, time);
       } else {
         this.renderer.setRenderTarget(null);

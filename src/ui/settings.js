@@ -28,7 +28,7 @@
         ['h', 'SOUND'], ['slider', 'SOUND EFFECTS'], ['slider', 'MUSIC'],
         ['h', 'VIBRATION'], ['seg', 'STRENGTH'],
         ['h', 'CONTROLS'], ['slider', 'SENSITIVITY'], ['toggle', 'INVERT UP / DOWN'],
-        ['h', 'DISPLAY'], ['seg', 'GRAPHICS'], ['toggle', 'VISUAL EFFECTS'],
+        ['h', 'DISPLAY'], ['seg', 'VISUAL STYLE'], ['seg', 'GRAPHICS'], ['toggle', 'VISUAL EFFECTS'],
         ['h', 'OTHER'], ['toggle', 'SAMPLE ADS'], ['toggle', 'SHOW FPS'],
         ['btn', 'HOW TO PLAY'], ['btn', 'REPLAY TUTORIAL'],
       ];
@@ -52,6 +52,7 @@
             if (touch) this.slider(ctx, label, r, U.clamp((s.touchSens - 0.4) / 1.8, 0, 1), (v) => { s.touchSens = Math.round((0.4 + v * 1.8) * 20) / 20; }, Math.round(s.touchSens * 100) + '%', apply);
             else this.slider(ctx, label, r, U.clamp((s.sensitivity - 0.0004) / 0.0056, 0, 1), (v) => { s.sensitivity = Math.round((0.0004 + v * 0.0056) * 20000) / 20000; }, U.formatDec(s.sensitivity * 1000, 1), apply);
           } else if (label === 'INVERT UP / DOWN') this.toggle(ctx, label, r, !!s.invertY, (v) => { s.invertY = v; apply(); });
+          else if (label === 'VISUAL STYLE') this.segmented(ctx, label, r, ['CLASSIC', 'REALISTIC'], CC.Look.real() ? 1 : 0, (i) => game.setLook(i ? 'real' : 'classic'));
           else if (label === 'GRAPHICS') {
             const g = s.graphics || 'auto', t = game.quality ? game.quality.tier : null;
             this.segmented(ctx, 'GRAPHICS', r, ['AUTO', 'HIGH', 'MEDIUM', 'LOW'], GFX.indexOf(g), (i) => this.setGraphics(game, GFX[i]), g === 'auto' && t ? 'AUTO = ' + { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }[t] : '');
