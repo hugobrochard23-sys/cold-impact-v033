@@ -585,3 +585,11 @@ Aucun changement de fonctionnement : seule la présentation de `src/ui/shop.js` 
   carte choisie légèrement soulevée avec crochets, ombre portée ; **onglets** avec compteur possédés / total.
 - **Célébration** : rayons tournants à la couleur de rareté, étoiles de rareté, ombres de texte.
 
+### v033-ux3 — jeu entièrement en anglais
+
+Tout le texte visible passe en anglais (menus, boutique, réglages, aide, tutoriel, pause, résultats, publicités d'exemple, annonces,
+noms et descriptions des 21 cosmétiques, niveaux de difficulté, zones, ambiances, cibles, messages du générateur) ; `<html lang="en">`.
+Les identifiants (sauvegarde, `id` des cosmétiques, clés de réglages) ne changent pas : les sauvegardes existantes restent valides.
+Vérifié : parcours de tous les écrans en 360×640 sans texte qui déborde ni mot français affiché. Restent en français : la
+documentation, les commentaires du code et la page `politique-confidentialite.html` (texte juridique, non liée depuis le jeu).
+

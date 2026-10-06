@@ -12,13 +12,13 @@
 (function () {
   const U = CC.U;
   const TIER_COLOR = { base: '#9a9a9a', common: '#e8e8e8', rare: '#fdfd02', ultra: '#ff7c1f' };
-  const TIER_NAME = { base: 'DE BASE', common: 'COMMUN', rare: 'RARE', ultra: 'ULTRA RARE' };
-  const TIER_SHORT = { base: 'DE BASE', common: 'COMMUN', rare: 'RARE', ultra: 'ULTRA' };   // étiquettes courtes (pastilles)
+  const TIER_NAME = { base: 'STOCK', common: 'COMMON', rare: 'RARE', ultra: 'ULTRA RARE' };
+  const TIER_SHORT = { base: 'STOCK', common: 'COMMON', rare: 'RARE', ultra: 'ULTRA' };   // étiquettes courtes (pastilles)
   const TIER_STARS = { base: 0, common: 1, rare: 2, ultra: 3 };
   // catégories : pour l'instant les seules apparences de roquette (toutes les fiches de CC.Skins), filtrées par rareté.
   // Une nouvelle catégorie (flammes, thèmes…) = une entrée ici + sa liste de fiches.
   const TABS = [
-    { id: 'all', label: 'TOUS', color: '#f4f4f4' }, { id: 'common', label: 'COMMUN', color: TIER_COLOR.common },
+    { id: 'all', label: 'ALL', color: '#f4f4f4' }, { id: 'common', label: 'COMMON', color: TIER_COLOR.common },
     { id: 'rare', label: 'RARE', color: TIER_COLOR.rare }, { id: 'ultra', label: 'ULTRA', color: TIER_COLOR.ultra },
   ];
   const CONFETTI = ['#fdfd02', '#ff7c1f', '#56ff5a', '#4ab0ff', '#ff3b2e', '#f4f4f4'];
@@ -106,9 +106,9 @@
       ui.backButton(ctx, sx, hdrY, mt);
       const own = list.filter((s) => owned(s.id)).length, cnt = own + '/' + list.length, cph = mt * 0.64;
       const pw = CC.Font.measure(cnt, cph * 0.075) + cph * 1.35, gx0 = sx + mt * 1.2 + gap, gx1 = W - sx - pw - gap;   // le titre se centre entre le retour et le compteur
-      const tp = ui.fitPx(['BOUTIQUE'], (gx1 - gx0) * 0.88, HH * 0.0075), ty = hdrY + (mt - tp * 7) / 2, tcx = (gx0 + gx1) / 2;
-      ui.text(ctx, 'BOUTIQUE', tcx + tp * 0.8, ty + tp * 0.8, tp, '#05060a', { align: 'center', skew: -0.2, outline: null });
-      ui.text(ctx, 'BOUTIQUE', tcx, ty, tp, col.white, { align: 'center', skew: -0.2 });
+      const tp = ui.fitPx(['SHOP'], (gx1 - gx0) * 0.88, HH * 0.0075), ty = hdrY + (mt - tp * 7) / 2, tcx = (gx0 + gx1) / 2;
+      ui.text(ctx, 'SHOP', tcx + tp * 0.8, ty + tp * 0.8, tp, '#05060a', { align: 'center', skew: -0.2, outline: null });
+      ui.text(ctx, 'SHOP', tcx, ty, tp, col.white, { align: 'center', skew: -0.2 });
       this.pill(ctx, W - sx, hdrY + mt * 0.18, cph, cnt, col.yellow, '#10162a', function (c, x, y, s, color) { this.star(c, x, y, s * 1.5, true, color); }, true);
       // barre de collection : une case par cosmétique, à la couleur de sa rareté quand il est possédé
       const barY = hdrY + mt + HH * 0.01, barH = Math.max(5 * pr, HH * 0.008), sg = 2 * pr, segW = (W - sx * 2 - sg * (list.length - 1)) / list.length;
@@ -179,7 +179,7 @@
       const maxPx = h * 0.0125, name = ui.fitPx([s.name], w * 0.9, maxPx) >= maxPx * 0.7 ? s.name : (s.short || s.name);
       const npx = ui.fitPx([name], w * 0.9, maxPx), spx = Math.min(npx * 0.8, ui.fitPx(['2,29 EUR'], w * 0.6, h * 0.02));
       ui.text(ctx, name, x + w / 2, py + ph * 0.16, npx, tc, { align: 'center' });
-      const sub = eq ? 'EQUIPEE' : owned ? 'POSSEDEE' : CC.Skins.formatPrice(s.price), sc = eq ? col.yellow : owned ? col.green : '#ffffff';
+      const sub = eq ? 'EQUIPPED' : owned ? 'OWNED' : CC.Skins.formatPrice(s.price), sc = eq ? col.yellow : owned ? col.green : '#ffffff';
       ui.text(ctx, sub, x + w / 2, py + ph * 0.16 + npx * 9.5, spx, sc, { align: 'center' });
       // rareté : étoiles en haut à gauche ; état : pastille en haut à droite
       this.stars(ctx, x + w * 0.05, y + h * 0.075, TIER_STARS[s.tier], h * 0.028, tc);
@@ -206,7 +206,7 @@
       const pad = R.h * 0.03, ph = Math.round(mt * 0.5), btnH = mt * 1.2, by = R.y + R.h - btnH - pad, bx = R.x + R.w * 0.04, bw = R.w * 0.92;
       // rangée du haut : rareté (pastille pleine + étoiles) et état
       const rw = this.pill(ctx, R.x + pad * 1.4, R.y + pad, ph, TIER_SHORT[s.tier], '#14141a', tc), starsW = TIER_STARS[s.tier] * ph * 0.22 * 2.3 + ph * 0.3;
-      const stLabel = eq ? 'EQUIPEE' : owned ? 'POSSEDEE' : 'BLOQUEE', stW = CC.Font.measure(stLabel, ph * 0.075) + ph * 1.45;
+      const stLabel = eq ? 'EQUIPPED' : owned ? 'OWNED' : 'LOCKED', stW = CC.Font.measure(stLabel, ph * 0.075) + ph * 1.45;
       if (pad * 2.8 + rw + starsW + stW + ph * 0.3 < R.w) this.stars(ctx, R.x + pad * 1.4 + rw + ph * 0.3, R.y + pad + ph / 2, TIER_STARS[s.tier], ph * 0.22, tc);   // étoiles si la place le permet
       const pk = this.pop && this.pop.id === s.id ? 1 + Math.sin(Math.min(1, this.pop.t / 0.35) * Math.PI) * 0.12 : 1;
       ctx.save(); ctx.translate(R.x + R.w - pad * 1.4, R.y + pad + ph / 2); ctx.scale(pk, pk);
@@ -261,7 +261,7 @@
 
       // boutons d'action
       if (owned) {
-        const label = eq ? 'EQUIPEE' : 'EQUIPER', bp = ui.fitPx([label], bw * 0.6, btnH * 0.05);
+        const label = eq ? 'EQUIPPED' : 'EQUIP', bp = ui.fitPx([label], bw * 0.6, btnH * 0.05);
         if (eq) {
           const face = ui.placeButton(ctx, { x: bx, y: by, w: bw, h: btnH }, null, 0, null, { color: col.green, fx: 'none', fill: 'rgba(40,120,50,0.22)' });
           const tw = CC.Font.measure(label, bp);
@@ -270,15 +270,15 @@
         } else ui.placeButton(ctx, { x: bx, y: by, w: bw, h: btnH }, label, bp, () => this.equip(game, s.id), { color: col.yellow, solid: true, fx: 'equip' });
       } else {
         const hw = (bw - R.w * 0.03) / 2, price = CC.Skins.formatPrice(s.price);
-        const bp = ui.fitPx(['ACHETER', 'PUB 1 MIN'], hw * 0.86, btnH * 0.046), sp = ui.fitPx([price, 'GRATUIT'], hw * 0.8, bp * 0.7);
+        const bp = ui.fitPx(['BUY', 'AD 1 MIN'], hw * 0.86, btnH * 0.046), sp = ui.fitPx([price, 'FREE'], hw * 0.8, bp * 0.7);
         const a = ui.placeButton(ctx, { x: bx, y: by, w: hw, h: btnH }, null, 0, () => this.buy(game, s.id), { color: col.yellow, solid: true, fx: 'primary' });
-        ui.text(ctx, 'ACHETER', a.x + a.w / 2, a.y + a.h * 0.5 - bp * 8, bp, '#14141a', { align: 'center', outline: null });
+        ui.text(ctx, 'BUY', a.x + a.w / 2, a.y + a.h * 0.5 - bp * 8, bp, '#14141a', { align: 'center', outline: null });
         ui.text(ctx, price, a.x + a.w / 2, a.y + a.h * 0.5 + bp * 1.2, sp, '#4a4a10', { align: 'center', outline: null });
         const b = ui.placeButton(ctx, { x: bx + hw + R.w * 0.03, y: by, w: hw, h: btnH }, null, 0, () => this.watch(game, s.id), { color: '#8fd0ff', fx: 'primary', fill: 'rgba(60,110,170,0.2)' });
-        const lw = CC.Font.measure('PUB 1 MIN', bp);
+        const lw = CC.Font.measure('AD 1 MIN', bp);
         ui.iconPlay(ctx, b.x + b.w / 2 - lw / 2 - bp * 3, b.y + b.h * 0.5 - bp * 4.3, bp * 1.6, '#8fd0ff');
-        ui.text(ctx, 'PUB 1 MIN', b.x + b.w / 2 + bp * 2, b.y + b.h * 0.5 - bp * 8, bp, '#8fd0ff', { align: 'center' });
-        ui.text(ctx, 'GRATUIT', b.x + b.w / 2, b.y + b.h * 0.5 + bp * 1.2, sp, '#cfe8ff', { align: 'center' });
+        ui.text(ctx, 'AD 1 MIN', b.x + b.w / 2 + bp * 2, b.y + b.h * 0.5 - bp * 8, bp, '#8fd0ff', { align: 'center' });
+        ui.text(ctx, 'FREE', b.x + b.w / 2, b.y + b.h * 0.5 + bp * 1.2, sp, '#cfe8ff', { align: 'center' });
       }
     }
 
@@ -295,16 +295,16 @@
     // l'adresse de retour) et dans client_reference_id (visible dans le Dashboard et les webhooks).
     buy(game, id) {
       const s = CC.Skins.byId[id], ui = this.ui;
-      ui.confirm({ title: 'ACHETER ' + (s.short || s.name) + ' ?', lines: [CC.Skins.formatPrice(s.price) + ' - PAIEMENT EN LIGNE SECURISE', 'TU REVIENDRAS AU JEU APRES LE PAIEMENT'], yes: 'PAYER', no: 'ANNULER', color: '#fdfd02', onYes: () => this.pay(game, id) });
+      ui.confirm({ title: 'BUY ' + (s.short || s.name) + '?', lines: [CC.Skins.formatPrice(s.price) + ' - SECURE ONLINE PAYMENT', 'YOU WILL RETURN TO THE GAME AFTER PAYING'], yes: 'PAY', no: 'CANCEL', color: '#fdfd02', onYes: () => this.pay(game, id) });
     }
     pay(game, id) {
       const link = CC.CONFIG.shop.stripeLink;
-      if (!link) { this.ui.feedback('denied'); this.ui.toast('PAIEMENT PAS ENCORE ACTIF (LIEN STRIPE A RENSEIGNER)', '#ff9a3a', 3.4); return; }
+      if (!link) { this.ui.feedback('denied'); this.ui.toast('PAYMENT NOT ACTIVE YET (STRIPE LINK NOT SET)', '#ff9a3a', 3.4); return; }
       game.save.pendingPurchase = id; game.writeSave();
       const url = link + (link.indexOf('?') < 0 ? '?' : '&') + 'client_reference_id=' + encodeURIComponent(id) + '&utm_content=' + encodeURIComponent(id) + '&utm_source=coldimpact';
       game.telemetry.event('purchase', { id });
       if (window.top === window) window.location.href = url;          // page du jeu : même onglet, retour automatique
-      else { const w = window.open(url, '_blank'); if (!w) this.ui.toast('OUVRE LE JEU DANS UN NAVIGATEUR POUR PAYER', '#ff9a3a', 3.4); }   // jeu intégré dans une autre page
+      else { const w = window.open(url, '_blank'); if (!w) this.ui.toast('OPEN THE GAME IN A BROWSER TO PAY', '#ff9a3a', 3.4); }   // jeu intégré dans une autre page
     }
 
     // Publicité : une minute entière (annonces de 15 s enchaînées) ; fermer avant la fin ne débloque rien
@@ -343,16 +343,16 @@
       ctx.restore();
       const gl = ctx.createRadialGradient(cx, cy, ps * 0.05, cx, cy, ps * 0.7); gl.addColorStop(0, tc + '88'); gl.addColorStop(1, tc + '00'); ctx.fillStyle = gl; ctx.fillRect(0, T, W, HH);
       this.drawPreview(ctx, s, cx, cy, ps * bounce, Math.floor(c.t * 9) % CC.Thumbs.FRAMES);
-      const tp = ui.fitPx(['DEBLOQUE !'], W * 0.86, HH * 0.0105), tk = U.smooth(0, 0.35, c.t);
+      const tp = ui.fitPx(['UNLOCKED!'], W * 0.86, HH * 0.0105), tk = U.smooth(0, 0.35, c.t);
       ctx.save(); ctx.translate(cx, T + HH * 0.13); ctx.scale(0.4 + tk * 0.6, 0.4 + tk * 0.6); ctx.globalAlpha = tk;
-      ui.text(ctx, 'DEBLOQUE !', tp * 0.7, -tp * 3.5 + tp * 0.7, tp, '#05060a', { align: 'center', skew: -0.2, outline: null });
-      ui.text(ctx, 'DEBLOQUE !', 0, -tp * 3.5, tp, col.yellow, { align: 'center', skew: -0.2 }); ctx.restore();
+      ui.text(ctx, 'UNLOCKED!', tp * 0.7, -tp * 3.5 + tp * 0.7, tp, '#05060a', { align: 'center', skew: -0.2, outline: null });
+      ui.text(ctx, 'UNLOCKED!', 0, -tp * 3.5, tp, col.yellow, { align: 'center', skew: -0.2 }); ctx.restore();
       const np = ui.fitPx([s.name], W * 0.86, HH * 0.0072), ny = T + HH * 0.6;
       ui.text(ctx, s.name, cx + np * 0.5, ny + np * 0.5, np, ui.shade(tc, 0.28), { align: 'center', skew: -0.12, outline: null });
       ui.text(ctx, s.name, cx, ny, np, tc, { align: 'center', skew: -0.12 });
       const sr = np * 2.4, n = TIER_STARS[s.tier], sy = ny + np * 12;
       for (let i = 0; i < n; i++) ui.star(ctx, cx + (i - (n - 1) / 2) * sr * 2.4, sy, sr * (0.6 + 0.4 * U.smooth(0.3 + i * 0.15, 0.6 + i * 0.15, c.t)), true, tc);
-      const line = TIER_NAME[s.tier] + '  -  EQUIPEE';
+      const line = TIER_NAME[s.tier] + '  -  EQUIPPED';
       ui.text(ctx, line, cx, sy + sr * 2.2, ui.fitPx([line], W * 0.86, np * 0.55), col.green, { align: 'center' });
       // confettis : gravité, rotation, disparition en bas
       const g = 1500 * ui.pixelRatio();
@@ -361,8 +361,8 @@
         if (p.y > ui.game.hudCanvas.height + 40) continue;
         ctx.save(); ctx.translate(p.x - ui.safeL, p.y - ui.safeT - (ui.offsetY || 0)); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
       }
-      const bh = mt * 1.3, bp = ui.fitPx(['SUPER !'], W * 0.5, bh * 0.05), bw = W * 0.7;
-      if (c.t > 0.7) ui.placeButton(ctx, { x: (W - bw) / 2, y: T + HH - bh - HH * 0.05, w: bw, h: bh }, 'SUPER !', bp, () => { this.cel = null; }, { color: col.yellow, solid: true, fx: 'primary', pulse: true });
+      const bh = mt * 1.3, bp = ui.fitPx(['AWESOME!'], W * 0.5, bh * 0.05), bw = W * 0.7;
+      if (c.t > 0.7) ui.placeButton(ctx, { x: (W - bw) / 2, y: T + HH - bh - HH * 0.05, w: bw, h: bh }, 'AWESOME!', bp, () => { this.cel = null; }, { color: col.yellow, solid: true, fx: 'primary', pulse: true });
     }
   }
 

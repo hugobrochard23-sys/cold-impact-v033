@@ -9,7 +9,7 @@
   // Ajouter une difficulté = une entrée de plus (ordre = rang d'affichage).
   const D = (id, o) => G.Difficulties.add(id, o);
   D('easy', {
-    order: 0, label: 'FACILE', color: '#56ff5a', blurb: 'GRANDS ESPACES - PEU DE DEFENSES',
+    order: 0, label: 'EASY', color: '#56ff5a', blurb: 'WIDE OPEN SPACES - FEW DEFENSES',
     base: {
       obstacleDensity: 0.12, buildingDensity: 0.35, tankDensity: 0.12, helicopterDensity: 0.1, defenseDensity: 0.0,
       targetProtection: 0.08, availableSpace: 0.95, routeComplexity: 0.12, distance: 430, enemyReaction: 0.25, environmentalComplexity: 0.12,
@@ -19,7 +19,7 @@
     scoreBand: [0, 28],
   });
   D('medium', {
-    order: 1, label: 'MOYEN', color: '#fdfd02', blurb: 'PLUS DE TANKS - TRAJECTOIRES A CHOISIR',
+    order: 1, label: 'MEDIUM', color: '#fdfd02', blurb: 'MORE TANKS - CHOOSE YOUR LINE',
     base: {
       obstacleDensity: 0.4, buildingDensity: 0.55, tankDensity: 0.4, helicopterDensity: 0.35, defenseDensity: 0.15,
       targetProtection: 0.35, availableSpace: 0.72, routeComplexity: 0.38, distance: 600, enemyReaction: 0.55, environmentalComplexity: 0.35,
@@ -29,7 +29,7 @@
     scoreBand: [24, 50],
   });
   D('hard', {
-    order: 2, label: 'DIFFICILE', color: '#ff7c1f', blurb: 'DEFENSES CROISEES - PASSAGES ETROITS',
+    order: 2, label: 'HARD', color: '#ff7c1f', blurb: 'CROSSFIRE - TIGHT PASSAGES',
     base: {
       obstacleDensity: 0.7, buildingDensity: 0.78, tankDensity: 0.7, helicopterDensity: 0.65, defenseDensity: 0.5,
       targetProtection: 0.68, availableSpace: 0.52, routeComplexity: 0.65, distance: 760, enemyReaction: 0.85, environmentalComplexity: 0.6,
@@ -39,7 +39,7 @@
     scoreBand: [44, 70],
   });
   D('impossible', {
-    order: 3, label: 'IMPOSSIBLE', color: '#ff3b2e', blurb: 'SATURATION - AUCUNE MARGE',
+    order: 3, label: 'IMPOSSIBLE', color: '#ff3b2e', blurb: 'SATURATED - NO MARGIN FOR ERROR',
     base: {
       obstacleDensity: 0.95, buildingDensity: 0.95, tankDensity: 0.95, helicopterDensity: 0.95, defenseDensity: 0.95,
       targetProtection: 0.95, availableSpace: 0.34, routeComplexity: 0.9, distance: 900, enemyReaction: 1.0, environmentalComplexity: 0.85,

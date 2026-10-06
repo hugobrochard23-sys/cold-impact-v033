@@ -50,7 +50,7 @@
       // meilleure carte « presque bonne » gardée en secours : jouable, score le plus proche de la plage
       if (plan.playable && (!best || plan.bandDist < best.bandDist)) best = plan;
     }
-    if (!best) { const err = new Error('génération impossible (graine ' + seed + ', ' + diffId + ') : ' + rejects.map((r) => r.reason).join(' | ')); err.rejects = rejects; throw err; }
+    if (!best) { const err = new Error('generation failed (seed ' + seed + ', ' + diffId + ') : ' + rejects.map((r) => r.reason).join(' | ')); err.rejects = rejects; throw err; }
     best.rejects = rejects;
     best.timings.total = G.round(G.now() - t0, 1);
     if (!opts.keepNav) best.nav = null;
@@ -78,7 +78,7 @@
     t = tick('layout', t);
     G.placeLauncher(plan, G.stream(sub, 'launcher'));
     G.placeTargets(plan, G.stream(sub, 'targets'));
-    if (plan.targets.length < plan.profile.targetCount) return reject(plan, 'cibles impossibles à placer');
+    if (plan.targets.length < plan.profile.targetCount) return reject(plan, 'targets cannot be placed');
     t = tick('targets', t);
     fillZones(plan, G.stream(sub, 'zones'));
     t = tick('structures', t);
@@ -95,7 +95,7 @@
     plan.start = [L[0], L[1] + 1.5, L[2] - 22];
     for (const tg of plan.targets) {
       const path = nav.search(plan.start, tg.approach, { altRef: 40, avoid: approachSide(tg), maxExpand: 150000 });
-      if (!path) return reject(plan, 'cible ' + tg.i + ' inaccessible (' + tg.setup + ')');
+      if (!path) return reject(plan, 'target ' + tg.i + ' inaccessible (' + tg.setup + ')');
       plan.corridors.push(leadIn(plan, nav, nav.smooth(path), tg));
     }
     // départ : le joueur oriente librement le lanceur ; la route part donc droit vers la suite de son premier couloir

@@ -12,15 +12,15 @@
 (function () {
   const U = CC.U;
   const STEPS = [
-    { id: 'fire', hint: 'tap', text: { touch: 'TOUCHE L\'ECRAN POUR TIRER', pc: 'CLIC GAUCHE POUR TIRER' }, done: (g) => g.state === 'FLIGHT' },
-    { id: 'steer', hint: 'drag', slow: 0.3, text: { touch: 'GLISSE LE DOIGT POUR DIRIGER', pc: 'BOUGE LA SOURIS POUR DIRIGER' },
+    { id: 'fire', hint: 'tap', text: { touch: 'TAP THE SCREEN TO FIRE', pc: 'LEFT CLICK TO FIRE' }, done: (g) => g.state === 'FLIGHT' },
+    { id: 'steer', hint: 'drag', slow: 0.3, text: { touch: 'DRAG YOUR FINGER TO STEER', pc: 'MOVE THE MOUSE TO STEER' },
       begin: (g, t) => { t.q0 = g.input.aimQ.clone(); }, done: (g, t) => g.input.aimQ.angleTo(t.q0) > 0.4 },
-    { id: 'boost', hint: 'hold', slow: 0.3, text: { touch: 'MAINTIENS LE DOIGT : BOOST', pc: 'MAINTIENS ESPACE : BOOST' },
+    { id: 'boost', hint: 'hold', slow: 0.3, text: { touch: 'HOLD YOUR FINGER: BOOST', pc: 'HOLD SPACE: BOOST' },
       begin: (g, t) => { t.held = 0; }, done: (g, t) => t.held > 0.6 },
-    { id: 'fuel', hint: 'fuel', time: 3.4, text: { touch: 'LA JAUGE EN BAS, C\'EST TON ESSENCE. LE BOOST LA VIDE', pc: 'LA JAUGE EN BAS, C\'EST TON ESSENCE. LE BOOST LA VIDE' } },
-    { id: 'edge', hint: 'edge', slow: 0.3, touchOnly: true, text: { touch: 'DOIGT SUR LE BORD DE L\'ECRAN : VIRAGE', pc: '' },
+    { id: 'fuel', hint: 'fuel', time: 3.4, text: { touch: 'THE BAR AT THE BOTTOM IS YOUR FUEL. BOOST EMPTIES IT', pc: 'THE BAR AT THE BOTTOM IS YOUR FUEL. BOOST EMPTIES IT' } },
+    { id: 'edge', hint: 'edge', slow: 0.3, touchOnly: true, text: { touch: 'FINGER ON THE SCREEN EDGE: TURN', pc: '' },
       begin: (g, t) => { t.edgeSeen = 0; }, done: (g, t) => t.edgeSeen > 0.5 },
-    { id: 'goal', hint: 'goal', time: 5, text: { touch: 'FROLE LES MURS POUR LE STYLE. SUIS LES FLECHES VERTES VERS LA CIBLE !', pc: 'FROLE LES MURS POUR LE STYLE. SUIS LES FLECHES VERTES VERS LA CIBLE !' } },
+    { id: 'goal', hint: 'goal', time: 5, text: { touch: 'GRAZE THE WALLS FOR STYLE. FOLLOW THE GREEN ARROWS TO THE TARGET!', pc: 'GRAZE THE WALLS FOR STYLE. FOLLOW THE GREEN ARROWS TO THE TARGET!' } },
   ];
 
   class Tutorial {
@@ -52,8 +52,8 @@
       this.active = false;
       g.settings.tutorialDone = true; g.writeSave();
       g.toMenu();
-      if (skipped) g.ui.toast('TUTORIEL PASSE - REVOIS-LE DANS REGLAGES', '#8fd0ff', 3);
-      else { g.ui.toast('TUTORIEL TERMINE ! BON VOL, PILOTE', CC.CONFIG.hud.colors.green, 3.4); g.ui.feedback('success'); }
+      if (skipped) g.ui.toast('TUTORIAL SKIPPED - REPLAY IT IN SETTINGS', '#8fd0ff', 3);
+      else { g.ui.toast('TUTORIAL COMPLETE! HAPPY FLYING, PILOT', CC.CONFIG.hud.colors.green, 3.4); g.ui.feedback('success'); }
     }
 
     // facteur de temps : ralenti tant que le geste demandé n'est pas réussi
@@ -96,13 +96,13 @@
       const g = this.game;
       if (!this.active || g.paused || g.ui.overlay) return;
       const sa = hud.sa || { l: 0, t: 0, r: 0, b: 0 };
-      const msg = (g.state === 'RESPAWN' || g.state === 'CRASHED') ? 'RATE ! TOUCHE POUR REESSAYER' : null;
-      if (msg) { this.drawCard(ctx, W, H, sa, { title: 'OUPS', body: g.respawnMsg ? g.respawnMsg() : msg, color: '#ff9a3a', pct: 0 }); return; }
+      const msg = (g.state === 'RESPAWN' || g.state === 'CRASHED') ? 'MISSED! TAP TO TRY AGAIN' : null;
+      if (msg) { this.drawCard(ctx, W, H, sa, { title: 'OOPS', body: g.respawnMsg ? g.respawnMsg() : msg, color: '#ff9a3a', pct: 0 }); return; }
       const steps = this.steps(), s = steps[this.idx];
       if (!s || g.state === 'IMPACT') return;
       const text = this.touch ? s.text.touch : s.text.pc, done = this.doneT > 0;
       this.drawHint(ctx, W, H, sa, s, done, hud);
-      this.drawCard(ctx, W, H, sa, { title: done ? 'BIEN JOUE !' : (this.idx + 1) + '/' + steps.length, body: text, color: done ? CC.CONFIG.hud.colors.green : '#fdfd02', pct: this.idx / steps.length, done });
+      this.drawCard(ctx, W, H, sa, { title: done ? 'WELL DONE!' : (this.idx + 1) + '/' + steps.length, body: text, color: done ? CC.CONFIG.hud.colors.green : '#fdfd02', pct: this.idx / steps.length, done });
     }
 
     drawCard(ctx, W, H, sa, o) {

@@ -9,6 +9,10 @@ cible. Inspiré de la bande-annonce du jeu *Dumbfire*. Tous les assets (textures
 > aperçus 3D, réglages au doigt, zones système (encoche, barre d'accueil). **Le gameplay n'a pas changé** (le pilote automatique
 > refait les mêmes temps qu'en v033). Détail : [analysis/MOBILE_UX.md](analysis/MOBILE_UX.md).
 
+> **Langue (v033-ux3)** : tout le texte du jeu est maintenant **en anglais** ; cette documentation reste en français. Correspondance des
+> noms d'écrans : CLASSIQUE = CLASSIC, DÉFI = CHALLENGE, BOUTIQUE = SHOP, MISSIONS LIBRES = FREE MISSIONS, RÉGLAGES = SETTINGS,
+> NIVEAUX = LEVELS, RETOUR = back arrow, ÉQUIPER / ACHETER / PUB 1 MIN = EQUIP / BUY / AD 1 MIN, FACILE / MOYEN / DIFFICILE = EASY / MEDIUM / HARD.
+
 ## Technologies
 
 - **three.js r149** (copie locale `assets/lib/three.min.js`) pour la 3D ; **JavaScript classique** (scripts chargés par `index.html`,

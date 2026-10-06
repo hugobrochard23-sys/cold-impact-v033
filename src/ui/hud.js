@@ -107,7 +107,7 @@
       this.drawMissileWarning(game);
       const tut = game.tutorial && game.tutorial.active;
       if (tut) game.tutorial.draw(this.ctx, W, H, this);   // v033-ux : tutoriel interactif (src/ui/tutorial.js)
-      const msg = tut ? null : game.centerMsg || (lite && game.state === 'AIM' ? 'TOUCHE POUR TIRER    MAINTIENS : BOOST' : null);
+      const msg = tut ? null : game.centerMsg || (lite && game.state === 'AIM' ? 'TAP TO FIRE    HOLD: BOOST' : null);
       // v032 : réduit si le message dépasse la largeur de l'écran (brief de mission long, téléphone en portrait)
       const cpx = msg ? Math.min(C.center.px, 0.94 * W / Math.max(1, CC.Font.measure(msg, this.refH))) : 0;
       if (msg && !game.paused) this.text(msg, 0.5 * W, C.center.y * H, cpx, '#101010', { align: 'center', outline: '#f0f0f0' });   // v024 : pas par-dessus le menu pause
@@ -120,7 +120,7 @@
       const run = game.endlessRun, rec = (game.save.endless && game.save.endless.best) || 0, d = Math.round(run.dist);
       const y0 = (lite ? 0.045 : C.timer.y) * H + this.sa.t;   // sous l'encoche
       this.text(d + ' M', 0.5 * W, y0, lite ? 0.0052 : 0.0046, col.white, { align: 'center', outline: '#101010' });
-      if (rec > 0) this.text(d > rec ? 'NOUVEAU RECORD' : 'RECORD ' + rec + ' M', 0.5 * W, y0 + this.refH * (lite ? 0.068 : 0.098), 0.0021, d > rec ? col.yellow : '#d8d8d8', { align: 'center', outline: '#101010' });
+      if (rec > 0) this.text(d > rec ? 'NEW RECORD' : 'BEST ' + rec + ' M', 0.5 * W, y0 + this.refH * (lite ? 0.068 : 0.098), 0.0021, d > rec ? col.yellow : '#d8d8d8', { align: 'center', outline: '#101010' });
       const D = run.stageLabel();
       this.text(D.label, (this.portrait ? 0.04 : 0.03) * W + this.sa.l, y0 + (lite ? 0 : this.refH * 0.1), 0.0024, D.color, { outline: '#101010' });
       if (run.fuelGainT > 0 && game.state === 'FLIGHT') {
@@ -129,7 +129,7 @@
         this.text('+' + U.formatDec(run.fuelGain, 1) + ' S', F.x0 * W, (F.labelY - 0.05) * H, 0.0032, col.green, { outline: '#101010' });
         this.ctx.globalAlpha = 1;
       }
-      if (run.altT > 0 && game.state === 'FLIGHT' && Math.floor(run.altT * 6) % 2 === 0) this.text('ALTITUDE! DESCENDS', 0.5 * W, 0.3 * H, 0.0036, col.red, { align: 'center', outline: '#101010' });
+      if (run.altT > 0 && game.state === 'FLIGHT' && Math.floor(run.altT * 6) % 2 === 0) this.text('ALTITUDE! DESCEND', 0.5 * W, 0.3 * H, 0.0036, col.red, { align: 'center', outline: '#101010' });
     }
 
     // rectangle de la jauge d'essence (px du canvas) : au doigt, plus épaisse, et au-dessus de la barre d'accueil du téléphone

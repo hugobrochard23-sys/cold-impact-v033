@@ -202,9 +202,9 @@
       ctx.strokeStyle = m.color || col.yellow; ctx.lineWidth = Math.max(3, HH * 0.004); ctx.strokeRect(x, y, w, h);
       this.text(ctx, m.title, W / 2, y + HH * 0.03, px, m.color || col.yellow, { align: 'center', skew: -0.15 });
       lines.forEach((l, i) => this.text(ctx, l, W / 2, y + HH * 0.03 + px * 11 + i * lp * 10, lp, '#dcdcdc', { align: 'center' }));
-      const by = y + h - bh - HH * 0.025, bw = (w - HH * 0.075) / 2, bp = this.fitPx([m.yes || 'OUI', m.no || 'NON'], bw * 0.8, bh * 0.046);
-      this.placeButton(ctx, { x: x + HH * 0.025, y: by, w: bw, h: bh }, m.no || 'NON', bp, () => { this.modal = null; }, { color: '#bdbdbd', fx: 'back' });
-      this.placeButton(ctx, { x: x + w - HH * 0.025 - bw, y: by, w: bw, h: bh }, m.yes || 'OUI', bp, () => { this.modal = null; if (m.onYes) m.onYes(); }, { color: m.color || col.yellow, solid: true, fx: 'primary' });
+      const by = y + h - bh - HH * 0.025, bw = (w - HH * 0.075) / 2, bp = this.fitPx([m.yes || 'YES', m.no || 'NO'], bw * 0.8, bh * 0.046);
+      this.placeButton(ctx, { x: x + HH * 0.025, y: by, w: bw, h: bh }, m.no || 'NO', bp, () => { this.modal = null; }, { color: '#bdbdbd', fx: 'back' });
+      this.placeButton(ctx, { x: x + w - HH * 0.025 - bw, y: by, w: bw, h: bh }, m.yes || 'YES', bp, () => { this.modal = null; if (m.onYes) m.onYes(); }, { color: m.color || col.yellow, solid: true, fx: 'primary' });
       ctx.restore();
     },
 
@@ -247,7 +247,7 @@
     hitRect(r, action, opts) {
       opts = opts || {};
       const idx = this.buttons.length, dis = !!(opts.disabled || opts.locked);
-      this.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, idx, action, disabled: dis, fx: opts.fx, msg: opts.msg || (opts.locked ? 'VERROUILLE' : null), clip: this.clip });
+      this.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, idx, action, disabled: dis, fx: opts.fx, msg: opts.msg || (opts.locked ? 'LOCKED' : null), clip: this.clip });
       const p = this.ptr;
       const pressed = !dis && this.pressedKey === idx && !!(p && p.down && !p.scrolling && inside(r, p.x, p.y));
       const hot = this.hoverOk && !this.isTouch() && !dis && inside(r, this.mouse.x, this.mouse.y) && (!this.clip || inside(this.clip, this.mouse.x, this.mouse.y)) && !(p && p.down);

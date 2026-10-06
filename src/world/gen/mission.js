@@ -11,13 +11,13 @@
 
   // ---------- types de cible (modèle de jeu + encombrement + mises en situation possibles) ----------
   const K = (id, o) => G.TargetKinds.add(id, o);
-  K('tank', { type: 'tank', size: [3.9, 2.9, 6.2], label: 'CHAR', setups: { open: 1, revetment: 3, hangar: 2, canopy: 2, courtyard: 1 } });
-  K('truck', { type: 'truck', size: [2.8, 2.9, 5], label: 'CAMION', setups: { open: 1.5, canopy: 2, alley: 2, courtyard: 1.5, hangar: 1 } });
-  K('heli', { type: 'heli', size: [3, 3.2, 12.5], air: true, label: 'HELICOPTERE', setups: { rooftop: 2, airborne: 2, open: 1 } });
-  K('house', { type: 'house', size: [6.4, 7, 8], label: 'MAISON', setups: { open: 2, courtyard: 1 } });
+  K('tank', { type: 'tank', size: [3.9, 2.9, 6.2], label: 'TANK', setups: { open: 1, revetment: 3, hangar: 2, canopy: 2, courtyard: 1 } });
+  K('truck', { type: 'truck', size: [2.8, 2.9, 5], label: 'TRUCK', setups: { open: 1.5, canopy: 2, alley: 2, courtyard: 1.5, hangar: 1 } });
+  K('heli', { type: 'heli', size: [3, 3.2, 12.5], air: true, label: 'HELICOPTER', setups: { rooftop: 2, airborne: 2, open: 1 } });
+  K('house', { type: 'house', size: [6.4, 7, 8], label: 'HOUSE', setups: { open: 2, courtyard: 1 } });
   K('radar', { type: 'radar', size: [8, 9, 8], label: 'RADAR', setups: { open: 2, revetment: 2 } });
-  K('fuel', { type: 'fuel', size: [12, 8, 12], label: 'DEPOT', setups: { open: 1.5, revetment: 2.5, courtyard: 1 } });
-  K('command', { type: 'command', size: [10, 6, 10], label: 'POSTE DE COMMANDEMENT', setups: { open: 1, courtyard: 2, revetment: 2, canopy: 1 } });
+  K('fuel', { type: 'fuel', size: [12, 8, 12], label: 'FUEL DEPOT', setups: { open: 1.5, revetment: 2.5, courtyard: 1 } });
+  K('command', { type: 'command', size: [10, 6, 10], label: 'COMMAND POST', setups: { open: 1, courtyard: 2, revetment: 2, canopy: 1 } });
 
   // ---------- mises en situation ----------
   // protection : 0 (à découvert) → 1 (très protégée) ; la difficulté choisit autour de sa valeur de targetProtection
@@ -168,7 +168,7 @@
         if (s > bs) { bs = s; best = pc; }
       }
       if (!best) best = syntheticSite(plan, want, setup.radius, r);        // secours : emplacement au bord d'une route
-      if (!best) { plan.issues.push({ layer: 'combat', msg: 'aucune parcelle pour la cible ' + i }); continue; }
+      if (!best) { plan.issues.push({ layer: 'combat', msg: 'no plot for target ' + i }); continue; }
       used.add(best); best.target = true;
       // direction d'arrivée : vers le lanceur, tournée d'autant plus que la protection est forte (il faut contourner) ;
       // une cible à découvert se prend dans l'axe naturel. L'axe d'approche doit rester au ras du sol (pas dans une pente).
@@ -382,7 +382,7 @@
       alt = G.clamp(alt + r.range(12, 18), 20, 85);
       let ok = false;
       for (let k = 0; k < 6 && !ok; k++) { ok = loop.every((p) => nav.clearSphere(p[0], alt, p[2], 7)); if (!ok) alt += 7; }
-      if (!ok || alt > 95) { plan.issues.push({ layer: 'combat', msg: 'patrouille hélicoptère non dégagée', fixed: true }); continue; }
+      if (!ok || alt > 95) { plan.issues.push({ layer: 'combat', msg: 'helicopter patrol not clear', fixed: true }); continue; }
       const path = pts.map((p) => [G.round(p[0]), G.round(alt + r.range(-2, 2)), G.round(p[2])]);
       plan.helis.push({ mode, patrol: mode === 'hover' ? null : path, pos: path[0], speed: G.round(spd, 1), dir: 1, alt: G.round(alt, 1), drift: mode === 'hover' ? r.range(4, 8) : 0 });
     }

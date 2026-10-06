@@ -275,8 +275,8 @@
       this.restartLevel();
       // brief de mission : graine, zone, difficulté, cibles (quelques secondes au lanceur)
       const m = this.mission;
-      this.centerMsg = opts.challenge ? 'DÉFI ' + m.label + '  -  CARTE ' + opts.challenge.n + '/' + CC.CONFIG.challenge.maps + '  -  ' + m.biome
-        : (opts.daily ? 'MISSION DU JOUR  ' : 'MISSION ') + seed + '  -  ' + m.biome + '  -  ' + m.label;
+      this.centerMsg = opts.challenge ? 'CHALLENGE ' + m.label + '  -  MAP ' + opts.challenge.n + '/' + CC.CONFIG.challenge.maps + '  -  ' + m.biome
+        : (opts.daily ? 'DAILY MISSION  ' : 'MISSION ') + seed + '  -  ' + m.biome + '  -  ' + m.label;
       this.centerMsgT = 3.4;
       if (!this.testMode) { this.input.requestLock(); this.audio.init(); this.audio.resume(); if (this.audio.music) this.audio.music.start(); }
     }
@@ -291,7 +291,7 @@
       if (!pm || ++pm.frames < 2) return;
       this.pendingMission = null;
       try { this.startGenerated(pm.diffId, pm.seed, pm.opts); this.ui.overlay = null; } catch (e) {
-        console.error(e); this.ui.overlay = 'missions'; this.ui.toast('GENERATION IMPOSSIBLE - ESSAIE UNE AUTRE GRAINE', '#ff9a3a', 3.4);
+        console.error(e); this.ui.overlay = 'missions'; this.ui.toast('GENERATION FAILED - TRY ANOTHER SEED', '#ff9a3a', 3.4);
       }
     }
 
@@ -306,7 +306,7 @@
       this.restartLevel(true);
       this.rocket.fuel = CC.CONFIG.endless.fuelStart;
       const rec = this.save.endless && this.save.endless.best;
-      this.centerMsg = rec ? 'RECORD ' + Math.round(rec) + ' M' : 'VA LE PLUS LOIN POSSIBLE';
+      this.centerMsg = rec ? 'BEST ' + Math.round(rec) + ' M' : 'GO AS FAR AS YOU CAN';
       this.centerMsgT = 2.6;
       if (!this.testMode) { this.input.requestLock(); this.audio.init(); this.audio.resume(); if (this.audio.music) this.audio.music.start(); }
     }
@@ -318,7 +318,7 @@
       const prev = S.endless.best || 0;
       S.endless.runs = (S.endless.runs || 0) + 1;
       if (dist > prev) S.endless.best = dist;
-      const causes = { wall: 'MUR', hazard: 'LASER', cable: 'CABLE', missile: 'MISSILE', altitude: 'TROP HAUT', outOfBounds: 'CHUTE', stalled: 'PANNE SECHE' };
+      const causes = { wall: 'WALL', hazard: 'LASER', cable: 'CABLE', missile: 'MISSILE', altitude: 'TOO HIGH', outOfBounds: 'FELL', stalled: 'OUT OF FUEL' };
       this.results = { endless: true, title: 'DISTANCE ' + dist + ' M', dist, best: S.endless.best, newRecord: dist > prev && prev > 0, firstRun: prev === 0,
         style: this.style.total, time: this.runTime, stage: run.stageLabel(), cause: causes[this.crashKind] || 'CRASH' };
       this.state = 'RESULTS'; this.centerMsg = null;
@@ -461,7 +461,7 @@
       return L.generated ? L.difficulty === 'hard' : this.levelIndex >= CC.Levels.length - 3;
     }
 
-    respawnMsg() { return CC.Touch && CC.Touch.active ? 'TOUCHE POUR REAPPARAITRE' : 'CLIC POUR REAPPARAITRE AU LANCEUR'; }
+    respawnMsg() { return CC.Touch && CC.Touch.active ? 'TAP TO RESPAWN' : 'CLICK TO RESPAWN AT THE LAUNCHER'; }
 
     // v020 : niveau de menace des tirs anti-aériens, 0 (premier niveau) → 1 (dernier) ; AUTOMAP : selon la difficulté
     aaThreat() {
@@ -481,7 +481,7 @@
 
     finishLevel() {
       const id = this.level.id, best = this.save.best[id];
-      const r = { title: this.level.mode === 'targets' ? 'TOUTES LES CIBLES DETRUITES' : 'CIBLE DETRUITE', time: this.runTime, style: this.style.total, newRecord: false };
+      const r = { title: this.level.mode === 'targets' ? 'ALL TARGETS DESTROYED' : 'TARGET DESTROYED', time: this.runTime, style: this.style.total, newRecord: false };
       if (!best || this.runTime < best.time) { this.save.best[id] = { time: this.runTime, style: this.style.total }; r.newRecord = !!best || true; }
       r.bestTime = this.save.best[id].time;
       if (this.generated && this.mission) this.recordMission(r);

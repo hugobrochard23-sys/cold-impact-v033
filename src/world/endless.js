@@ -18,22 +18,22 @@
   // ---------- zones de décor ----------
   // wall(r) → matériau et teinte d'une paroi ; kind 'city' : immeubles (façades, toits équipés par le LevelBuilder)
   const ZONES = {
-    city: { label: 'ZONE URBAINE', envs: ['day', 'overcast', 'dawn'], ground: 'asphalt', groundTint: '#ffffff', city: true,
+    city: { label: 'URBAN AREA', envs: ['day', 'overcast', 'dawn'], ground: 'asphalt', groundTint: '#ffffff', city: true,
       wall: (r) => ({ mat: { side: r.pick(['facade', 'facadePink', 'facadeTan']), top: 'concrete', bottom: 'concreteDark' }, tint: r.pick(['#ffffff', '#f2eee8', '#e8ecf0']) }),
       obstacle: 'concrete', obstacleTint: '#d8d4cc' },
     desert: { label: 'DESERT', envs: ['haze', 'day'], ground: 'sand', groundTint: '#ffffff',
       wall: (r) => ({ mat: { side: 'rock', top: 'sand' }, tint: r.pick(['#e8c896', '#dcb883', '#f0d2a0']) }),
       obstacle: 'rock', obstacleTint: '#d8b888' },
-    snow: { label: 'MONTAGNE ENNEIGEE', envs: ['snow'], ground: 'white', groundTint: '#f4f8ff',
+    snow: { label: 'SNOWY MOUNTAINS', envs: ['snow'], ground: 'white', groundTint: '#f4f8ff',
       wall: (r) => ({ mat: { side: 'rock', top: 'white' }, tint: r.pick(['#c8d0dc', '#b8c2d0', '#d8dee8']) }),
       obstacle: 'rock', obstacleTint: '#c8d0dc' },
-    industry: { label: 'ZONE INDUSTRIELLE', envs: ['overcast', 'fog', 'dusk'], ground: 'concreteDark', groundTint: '#d8d4d0',
+    industry: { label: 'INDUSTRIAL AREA', envs: ['overcast', 'fog', 'dusk'], ground: 'concreteDark', groundTint: '#d8d4d0',
       wall: (r) => ({ mat: { side: r.pick(['corrugated', 'metal', 'brick']), top: 'concreteDark' }, tint: r.pick(['#c8ccd0', '#b8a898', '#a8b4b8']) }),
       obstacle: 'metal', obstacleTint: '#c8ccd4' },
     canyon: { label: 'CANYON', envs: ['dusk', 'day', 'haze'], ground: 'dirt', groundTint: '#c8a888',
       wall: (r) => ({ mat: { side: 'rock', top: 'dirt' }, tint: r.pick(['#c07858', '#b06848', '#c88a68']) }),
       obstacle: 'rock', obstacleTint: '#b87858' },
-    night: { label: 'VILLE DE NUIT', envs: ['night', 'moonlit'], ground: 'asphalt', groundTint: '#b8b8c0', city: true,
+    night: { label: 'NIGHT CITY', envs: ['night', 'moonlit'], ground: 'asphalt', groundTint: '#b8b8c0', city: true,
       wall: (r) => ({ mat: { side: r.pick(['facadeDark', 'facade']), top: 'concreteDark', bottom: 'concreteDark' }, tint: r.pick(['#b8bcc8', '#a8acb8']) }),
       obstacle: 'metal', obstacleTint: '#9aa0b0' },
   };
@@ -93,7 +93,7 @@
   E.level = function (seed) {
     const cfg = C(), T = new Track(seed);
     const L = {
-      id: 'endless', name: 'CLASSIQUE', hud: 'C', mode: 'endless', endless: true, seed, fuel: cfg.fuelMax,
+      id: 'endless', name: 'CLASSIC', hud: 'C', mode: 'endless', endless: true, seed, fuel: cfg.fuelMax,
       killY: -30, lookAhead: 16, terminalRange: 20, fireDelay: 0.35, impactVariant: 'orange',
       launcher: { type: 'shoulder', pos: [0, 12, 40], yaw: 0, pitch: 0 },
       menuView: { center: [0, 18, -60], radius: 12, height: 10 },
@@ -308,7 +308,7 @@
       if (st !== this.stage) {
         this.stage = st;
         const D = G.Difficulties.get(G.difficultyIds()[st]);
-        g.centerMsg = 'PALIER ' + D.label; g.centerMsgT = 2.2;
+        g.centerMsg = 'STAGE ' + D.label; g.centerMsgT = 2.2;
         g.audio.play('popup', null, 1.5);
       }
       const L = this.level;

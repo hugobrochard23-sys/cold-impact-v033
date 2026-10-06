@@ -31,12 +31,12 @@
       if (hit && !(it.setup && hit.ref.setup)) { removeItem(plan, it); removed++; continue; }
       sp.add(o, 'bld', it);
     }
-    if (removed) warn('géométrie', removed + ' structure(s) superposée(s) retirée(s)', true);
+    if (removed) warn('geometry', removed + ' overlapping structure(s) removed', true);
     // hors carte (marge : le décor peut déborder pour cadrer l'horizon)
     for (const it of plan.items) {
       if (it.removed) continue;
       const m = G.Items.get(it.t).layer === 'decor' ? 260 : 40;
-      if (it.x < bd.x0 - m || it.x > bd.x1 + m || it.z < bd.z0 - m || it.z > bd.z1 + m) { removeItem(plan, it); warn('géométrie', it.t + ' hors carte retiré', true); }
+      if (it.x < bd.x0 - m || it.x > bd.x1 + m || it.z < bd.z0 - m || it.z > bd.z1 + m) { removeItem(plan, it); warn('geometry', it.t + ' off the map, removed', true); }
     }
     // objets posés : ni flottants ni enfouis (structures au sol)
     for (const it of plan.items) {
@@ -44,28 +44,28 @@
       const d = G.Items.get(it.t);
       if (d.layer === 'obstacle' || it.t === 'cable' || it.t === 'laser') continue;
       const gr = G.groundRange(plan, d.foot(it));
-      if (it.y0 > gr[0] + 0.6 && it.t !== 'tree' && it.t !== 'rock') { it.y0 = gr[0]; warn('cohérence', it.t + ' reposé au sol', true); }
+      if (it.y0 > gr[0] + 0.6 && it.t !== 'tree' && it.t !== 'rock') { it.y0 = gr[0]; warn('consistency', it.t + ' put back on the ground', true); }
     }
     if (plan.items.some((it) => it.removed)) rebuildSolids(plan), plan._index = new G.SolidIndex(plan.solids);
     const index = plan._index;
 
     // véhicules (cibles, tanks, lance-missiles) : ni dans une structure, ni sur une pente
-    const vehicles = plan.targets.filter((t) => !G.TargetKinds.get(t.kind).air).map((t) => ({ p: t.pos, s: G.TargetKinds.get(t.kind).size, what: 'cible ' + t.i }))
+    const vehicles = plan.targets.filter((t) => !G.TargetKinds.get(t.kind).air).map((t) => ({ p: t.pos, s: G.TargetKinds.get(t.kind).size, what: 'target ' + t.i }))
       .concat(plan.guards.map((g) => ({ p: g.pos, s: [3.9, 2.9, 6.2], what: g.type })));
     for (const v of vehicles) {
       const rad = Math.max(v.s[0], v.s[2]) / 2 - 0.4;
       const d = index.dist(v.p[0], v.p[1] + v.s[1] / 2, v.p[2], rad + 1, (s) => s.kind === 'cable' || s.kind === 'hazard');
-      if (d < rad * 0.55) fatal('géométrie', v.what + ' coincé(e) dans une structure');
+      if (d < rad * 0.55) fatal('geometry', v.what + ' stuck in a structure');
       const gr = G.groundRange(plan, G.obb(v.p[0], v.p[2], v.s[0], v.s[2], 0));
-      if (gr[1] - gr[0] > 2) fatal('géométrie', v.what + ' sur une pente');
+      if (gr[1] - gr[0] > 2) fatal('geometry', v.what + ' on a slope');
     }
 
     // ---------- jeu ----------
     // départ : œil du lanceur et 25 premiers mètres libres
-    if (index.dist(L[0], L[1], L[2], 1.2) < 1.0) fatal('jeu', 'lanceur dans un obstacle');
-    if (index.segHit(L, plan.start, 1.0)) fatal('jeu', 'départ bloqué devant le lanceur');
+    if (index.dist(L[0], L[1], L[2], 1.2) < 1.0) fatal('gameplay', 'launcher inside an obstacle');
+    if (index.segHit(L, plan.start, 1.0)) fatal('gameplay', 'start blocked in front of the launcher');
     // tireurs trop près du lanceur (tir dès la sortie du tube)
-    for (const g of plan.guards) if (Math.hypot(g.pos[0] - L[0], g.pos[2] - L[2]) < 140) fatal('jeu', g.type + ' trop près du lanceur');
+    for (const g of plan.guards) if (Math.hypot(g.pos[0] - L[0], g.pos[2] - L[2]) < 140) fatal('gameplay', g.type + ' too close to the launcher');
     // routes : vérification exacte segment par segment (les cassables se traversent)
     plan.analysis.routeHits = 0;
     plan.routes.forEach((rt, k) => {
@@ -74,18 +74,18 @@
         const last = i === rt.length - 1;
         const hit = index.segHit(rt[i - 1], rt[i], last ? 0.35 : ROCKET_R);
         // relief : hors de la dernière plongée (la cible est au sol), la route reste au-dessus du terrain avec la marge
-        if (!hit && i < rt.length - 2 && !G.terrainClear(plan, rt[i - 1], rt[i], 1.2)) { fatal('jeu', 'route de la cible ' + k + ' dans le relief (segment ' + i + ')'); break; }
+        if (!hit && i < rt.length - 2 && !G.terrainClear(plan, rt[i - 1], rt[i], 1.2)) { fatal('gameplay', 'route to target ' + k + ' inside the terrain (segment ' + i + ')'); break; }
         if (hit) {
           // réparation : un petit objet (décor) sur la trajectoire est retiré ; une structure → carte rejetée
           const it = plan.items[hit.item];
           if (it && G.Items.get(it.t).layer === 'decor') { removeItem(plan, it); plan.analysis.routeHits++; continue; }
-          fatal('jeu', 'route de la cible ' + k + ' bloquée par ' + (it ? it.t : hit.kind) + ' (segment ' + i + ')');
+          fatal('gameplay', 'route to target ' + k + ' blocked by ' + (it ? it.t : hit.kind) + ' (segment ' + i + ')');
           break;
         }
       }
       // la cible est-elle visible depuis sa porte ? (lisibilité : on doit voir ce qu'on vise en arrivant)
       const lastApproach = tg.entry.length ? tg.entry[tg.entry.length - 1] : tg.gate;
-      if (index.segHit(lastApproach, tg.pos, 0.1, (s) => G.passable(s))) fatal('lisibilité', 'cible ' + k + ' masquée depuis son entrée');
+      if (index.segHit(lastApproach, tg.pos, 0.1, (s) => G.passable(s))) fatal('readability', 'target ' + k + ' hidden from its entrance');
     });
     if (plan.items.some((it) => it.removed)) { rebuildSolids(plan); plan._index = new G.SolidIndex(plan.solids); }
     // virages : taux de virage demandé à 60 m/s pour chaque coin de route
@@ -95,21 +95,21 @@
     // La roquette tourne jusqu'à 5 rad/s (rayon 12 m à 60 m/s) ; en freinant (rétro-fusées, ≈ 30 m/s) elle prend un virage
     // de rayon 7 m. Au-delà (8,5 rad/s ramenés à 60 m/s) le virage est infaisable → rejet ; au-delà du profil de la
     // difficulté (×1,5 : FACILE 1,8 · MOYEN 2,6 · DIFFICILE 3,6 · IMPOSSIBLE 5 rad/s) → hors difficulté, nouvel essai.
-    if (worst > 8.5) fatal('jeu', 'virage trop serré (' + worst.toFixed(2) + ' rad/s)');
-    else if (worst > P.maxTurnRate * 1.5) warn('difficulté', 'virage plus serré que le profil (' + worst.toFixed(2) + ' rad/s)');
+    if (worst > 8.5) fatal('gameplay', 'turn too tight (' + worst.toFixed(2) + ' rad/s)');
+    else if (worst > P.maxTurnRate * 1.5) warn('difficulty', 'turn tighter than the profile (' + worst.toFixed(2) + ' rad/s)');
     plan.analysis.turnOver = worst > P.maxTurnRate * 1.5;
     // essence : la plus longue route doit tenir dans le réservoir avec la marge du profil
     const need = Math.max(...plan.routes.map((rt) => G.polyLen(rt))) / 62;
-    if (need > plan.fuel + CC.CONFIG.rocket.freeBoost) fatal('jeu', 'essence insuffisante');
+    if (need > plan.fuel + CC.CONFIG.rocket.freeBoost) fatal('gameplay', 'essence insuffisante');
     // décor collé à la cible (lisibilité)
     for (const tg of plan.targets) {
       for (const it of plan.items) {
         if (it.removed || G.Items.get(it.t).layer !== 'decor' || it.x === undefined) continue;
-        if (Math.hypot(it.x - tg.pos[0], it.z - tg.pos[2]) < 7) { removeItem(plan, it); warn('lisibilité', it.t + ' retiré près de la cible ' + tg.i, true); }
+        if (Math.hypot(it.x - tg.pos[0], it.z - tg.pos[2]) < 7) { removeItem(plan, it); warn('readability', it.t + ' removed near target ' + tg.i, true); }
       }
     }
     // ---------- cohérence ----------
-    if (!roadsConnected(plan)) fatal('cohérence', 'réseau routier coupé');
+    if (!roadsConnected(plan)) fatal('consistency', 'road network cut');
     if (plan.items.some((it) => it.removed)) { rebuildSolids(plan); plan._index = new G.SolidIndex(plan.solids); }
     plan.items = plan.items.filter((it) => !it.removed);
     plan.items.forEach((it, i) => { it.id = i; });

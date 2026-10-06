@@ -21,7 +21,7 @@
 
   function attach(game) {
     const pause = make('cc-pause', 'Pause', '', () => { game.audio.init(); game.audio.resume(); if (CC.Haptics) CC.Haptics.light(); game.pause(); });
-    const skip = make('cc-skip', 'Passer le tutoriel', 'PASSER >', () => { if (CC.Haptics) CC.Haptics.light(); game.tutorial.finish(true); });
+    const skip = make('cc-skip', 'Skip the tutorial', 'SKIP >', () => { if (CC.Haptics) CC.Haptics.light(); game.tutorial.finish(true); });
     return {
       // appelé à chaque image : visibilité selon l'état du jeu
       update() {

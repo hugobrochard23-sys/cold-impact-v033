@@ -47,7 +47,7 @@ mémoire, qualité graphique) qui traitait surtout du rendu.
 | **Boutique** | aperçu 3D tournant (vrai modèle rendu dans une cible), onglets de rareté, grille défilante de grandes cartes (équipée / possédée / cadenas + prix), ÉQUIPER / ACHETER / PUB 1 MIN, confirmation avant paiement, célébration au déblocage (confettis, fanfare, vibration forte) | `shop.js`, `thumbs.js` |
 | **Zones système** | marges de l'encoche et de la barre d'accueil lues par une sonde CSS et appliquées à l'interface, à la jauge d'essence, aux boutons HTML | `style.css`, `game.js` (`readSafe`), `hud.js` |
 | **Fluidité de l'interface** | 60 images/s tant que l'interface s'anime (appui, défilement, aperçu), 20 sinon | `game.js`, `widgets.js` (`needFrames`) |
-| **Langue** | interface entièrement en français (le HUD de vol garde ses libellés d'arcade : MISSILE!, LOW FUEL…) | partout |
+| **Langue** | interface d'abord unifiée en français, puis **entièrement en anglais** (v033-ux3) ; le HUD de vol garde ses libellés d'arcade (MISSILE!, LOW FUEL…) | partout |
 
 Choix volontaires :
 

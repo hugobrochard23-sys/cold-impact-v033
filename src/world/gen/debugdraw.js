@@ -111,16 +111,16 @@
     G.drawPlan(ctx, plan, { x, y, w, h, rocket, shooters, activeRoute: game.targetsDone });
     const S = plan.score, st = plan.stats, m = game.mission || {};
     const lines = [
-      'SEED ' + plan.seed + '  ' + plan.difficulty.toUpperCase() + '  ESSAI ' + (plan.attempt + 1),
+      'SEED ' + plan.seed + '  ' + plan.difficulty.toUpperCase() + '  TRY ' + (plan.attempt + 1),
       plan.biome.label + '  ' + plan.env.label,
       'SCORE ' + S.difficultyScore + '  [' + G.Difficulties.get(plan.difficulty).scoreBand + ']',
-      'PRESSION ' + S.enemyPressure + '  COMBAT ' + S.combatComplexity,
-      'TRAJET ' + S.traversalComplexity + '  OBST ' + S.obstacleComplexity + '  OUV ' + S.openness,
-      'BAT ' + st.buildings + ' ARB ' + st.trees + ' OBST ' + st.obstacles + ' OBJ ' + st.items,
-      'TANKS ' + st.tanks + ' SAM ' + st.sams + ' HELI ' + st.helis + ' CIBLES ' + st.targets,
-      'ROUTE ' + S.routeLength + ' M  EXPO ' + S.exposure + '  COULOIRS ' + S.corridors,
-      'ESSENCE ' + plan.fuel + ' S  VIRAGE MAX ' + plan.analysis.maxTurnRate,
-      'GEN ' + (m.genMs !== undefined ? m.genMs : plan.timings.total) + ' MS  CONSTR ' + (m.buildMs !== undefined ? m.buildMs : '-') + ' MS',
+      'PRESSURE ' + S.enemyPressure + '  COMBAT ' + S.combatComplexity,
+      'PATH ' + S.traversalComplexity + '  OBST ' + S.obstacleComplexity + '  OPEN ' + S.openness,
+      'BLD ' + st.buildings + ' TREES ' + st.trees + ' OBST ' + st.obstacles + ' ITEMS ' + st.items,
+      'TANKS ' + st.tanks + ' SAM ' + st.sams + ' HELI ' + st.helis + ' TARGETS ' + st.targets,
+      'ROUTE ' + S.routeLength + ' M  EXPOSURE ' + S.exposure + '  CORRIDORS ' + S.corridors,
+      'FUEL ' + plan.fuel + ' S  MAX TURN ' + plan.analysis.maxTurnRate,
+      'GEN ' + (m.genMs !== undefined ? m.genMs : plan.timings.total) + ' MS  BUILD ' + (m.buildMs !== undefined ? m.buildMs : '-') + ' MS',
     ];
     const px = Math.max(1, Math.min(HH * 0.0021, w / 230));
     ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x, y + h + 4, w, lines.length * px * 10 + 8);
