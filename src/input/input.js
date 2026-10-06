@@ -35,25 +35,33 @@
       window.addEventListener('keydown', (e) => onKey(e, true));
       window.addEventListener('keyup', (e) => onKey(e, false));
       el.addEventListener('contextmenu', (e) => e.preventDefault());
+      // v033-ux : interface (menus, pause, boutique…) = événements « pointeur » (souris ET doigt) : appui, glissé, relâchement.
+      // L'action d'un bouton part au relâchement ; le jeu lui-même n'est piloté que par les événements ci-dessous.
+      const uiOn = () => game.ui && game.ui.active();
+      let lastTouchUp = -1e9;
+      el.addEventListener('pointerdown', (e) => {
+        game.audio.init(); game.audio.resume();
+        if (!uiOn() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        const p = game.ui.toLocal(e);
+        game.ui.pointerDown(p.x, p.y, e);
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* capture indisponible */ }
+      });
+      el.addEventListener('pointermove', (e) => { if (game.ui) { const p = game.ui.toLocal(e); game.ui.pointerMove(p.x, p.y); } });
+      el.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'mouse') lastTouchUp = performance.now();
+        if (game.ui && game.ui.ptr) { const p = game.ui.toLocal(e); game.ui.pointerUp(p.x, p.y); }
+      });
+      el.addEventListener('pointercancel', () => { if (game.ui) game.ui.pointerCancel(); });
+      el.addEventListener('wheel', (e) => { if (uiOn() && game.ui.wheel(e.deltaY)) e.preventDefault(); }, { passive: false });
       el.addEventListener('mousedown', (e) => {
         game.audio.init(); game.audio.resume();
-        const r = el.getBoundingClientRect();
-        const x = (e.clientX - r.left) * (el.width / r.width), y = (e.clientY - r.top) * (el.height / r.height) - ((game.ui && game.ui.offsetY) || 0);
-        if (game.ui && (game.state === 'MENU' || game.state === 'RESULTS' || game.paused || game.ui.overlay)) {
-          if (game.ui.click(x, y)) return;
-          if (game.state === 'RESULTS' && e.button === 0) { game.restartLevel(); return; }
-          if (game.paused && !game.ui.overlay && e.button === 0) { game.resume(); return; }
-          return;
-        }
+        if (uiOn()) return;                                        // le pointeur appartient à l'interface
+        if (performance.now() - lastTouchUp < 800) return;         // « faux » clic que le navigateur génère après un toucher
         if (!this.locked && !game.testMode) this.requestLock();
         if (e.button === 0) this.fireEdge = true;
         if (e.button === 2) { this.grappleHeld = true; this.grappleEdge = true; }
       });
       window.addEventListener('mouseup', (e) => { if (e.button === 2) this.grappleHeld = false; });
-      el.addEventListener('mousemove', (e) => {
-        const r = el.getBoundingClientRect();
-        if (game.ui) { game.ui.mouse.x = (e.clientX - r.left) * (el.width / r.width); game.ui.mouse.y = (e.clientY - r.top) * (el.height / r.height) - (game.ui.offsetY || 0); }
-      });
       document.addEventListener('mousemove', (e) => {
         if (!this.locked || !this.enabled) return;
         const s = game.settings.sensitivity;

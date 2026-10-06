@@ -1,156 +1,109 @@
-/* Menus (absents de la vidéo → conception minimale dans le style du HUD, CHOIX validé) :
- * sélection de niveau, pause, résultats, réglages (TAB), liste des touches (F1). */
+/* Interface : cœur (CC.UI), menu d'accueil, DÉFI, générateur de missions.
+ * Tout est dessiné dans le canvas du HUD ; les composants communs (boutons à états, défilement, curseurs, toasts…) sont
+ * dans src/ui/widgets.js, la pause et les résultats dans endscreens.js, réglages et aide dans settings.js, la boutique
+ * dans shop.js. Chaque écran enregistre ses zones tactiles à chaque image (ui.buttons) ; le pointeur est géré par
+ * ui.pointerDown / Move / Up (src/input/input.js les alimente). */
 (function () {
   const U = CC.U;
 
   class UI {
-    constructor(game) { this.game = game; this.buttons = []; this.hover = -1; this.mouse = { x: -1, y: -1 }; this.overlay = null; }
-
-    text(ctx, s, x, y, px, color, opts) { return CC.Font.draw(ctx, s, x, y, px, color, opts || {}); }
-
-    // v030 : sur écran tactile, zone de toucher d'au moins 44 points de haut (recommandation iOS / Android) et bouton
-    // encadré (opts.box ou tactile) pour qu'il se lise comme un bouton ; opts.hitW : largeur de zone imposée (lignes de menu)
-    button(ctx, label, x, y, px, action, opts) {
-      opts = opts || {};
-      const touch = this.isTouch();
-      let w = opts.hitW || (CC.Font.measure(label, px) + px * 6), h = px * 11;
-      const minH = touch ? 44 * this.pixelRatio() : 0;
-      let bx = opts.align === 'left' ? x - px * 3 : x - w / 2, by = y - px * 2;
-      if (h < minH) { by -= (minH - h) / 2; h = minH; }
-      const idx = this.buttons.length;
-      const hot = !touch && this.mouse.x >= bx && this.mouse.x <= bx + w && this.mouse.y >= by && this.mouse.y <= by + h;
-      if (hot) this.hover = idx;
-      this.buttons.push({ x: bx, y: by, w, h, action });
-      const col = hot ? CC.CONFIG.hud.colors.yellow : (opts.color || '#f4f4f4');
-      if ((opts.box || touch) && opts.box !== false) {
-        const pad = Math.max(2, px);
-        ctx.fillStyle = opts.fill || 'rgba(255,255,255,0.07)'; ctx.fillRect(bx, by + pad * 0.5, w, h - pad);
-        ctx.strokeStyle = opts.color || 'rgba(244,244,244,0.55)'; ctx.lineWidth = Math.max(1, px * 0.45); ctx.strokeRect(bx, by + pad * 0.5, w, h - pad);
-      }
-      if (hot) this.text(ctx, '>', bx - px * 6, y, px, col);
-      this.text(ctx, label, opts.align === 'left' ? x : x, y, px, col, { align: opts.align || 'center' });
+    constructor(game) {
+      this.game = game; this.buttons = []; this.hover = -1; this.mouse = { x: -1, y: -1 }; this._ov = null;
+      this.safeL = this.safeT = this.safeR = this.safeB = 0;   // zones système (encoche, barre d'accueil) en pixels du canvas
+      this.starSeen = [false, false, false]; this.screenKey = '';
+      this.initKit();
     }
-    isTouch() { return document.body.classList.contains('cc-touch'); }
-    // v030 : plus grande taille de police (≤ maxPx) pour que tous les libellés tiennent dans maxW (police monospace)
-    fitPx(labels, maxW, maxPx) { let m = 0; for (const l of labels) m = Math.max(m, CC.Font.measure(l, 1)); return Math.min(maxPx, maxW / Math.max(1, m)); }
-    pixelRatio() { return this.game.renderer ? this.game.renderer.getPixelRatio() : 1; }
-    // libellé sans raccourci clavier sur écran tactile (« RETRY (CLICK) » → « RETRY »)
-    key(label, hint) { return this.isTouch() ? label : label + ' (' + hint + ')'; }
 
-    dim(ctx, W, H, a) { ctx.fillStyle = 'rgba(8,8,12,' + a + ')'; ctx.fillRect(0, -(this.offsetY || 0), W, this.fullH || H); }   // v017 : tout l'écran, pas seulement la bande
+    // plein écran, zones système comprises
+    dim(ctx, W, H, a) {
+      ctx.fillStyle = 'rgba(8,8,12,' + a + ')';
+      ctx.fillRect(-this.safeL - 2, -this.safeT - (this.offsetY || 0) - 2, W + this.safeL + this.safeR + 4, (this.fullH || H) + this.safeT + this.safeB + 4);
+    }
+
+    // true si l'interface capte le pointeur (menus, pause, surcouches, dialogue) : le jeu ne reçoit alors ni tir ni visée
+    active() {
+      const g = this.game;
+      return g.state === 'MENU' || g.state === 'RESULTS' || g.state === 'BOOT' || g.paused || !!this._ov || !!this.modal;
+    }
 
     draw(ctx, game, W, H) {
-      this.buttons = []; this.hover = -1;
-      const col = CC.CONFIG.hud.colors;
+      const now = performance.now();
+      this.tickKit(Math.min(0.05, (now - this.lastDraw) / 1000)); this.lastDraw = now;
+      const sk = game.state + '|' + game.paused + '|' + this._ov;   // l'écran a changé : ses animations repartent de zéro
+      if (sk !== this.screenKey) { this.screenKey = sk; this.screenT = 0; }
+      this.buttons = []; this.regions = []; this.hover = -1; this.clip = null;
+      const col = CC.CONFIG.hud.colors, ov = this._ov;
       if (game.state === 'MENU') this.drawMenu(ctx, game, W, H);
       else if (game.state === 'RESULTS') this.drawResults(ctx, game, W, H);
-      else if (game.paused && !this.overlay) this.drawPause(ctx, game, W, H);
-      if (this.overlay === 'settings') this.drawSettings(ctx, game, W, H);
-      else if (this.overlay === 'binds') this.drawBinds(ctx, game, W, H);
-      // Surcouches exclusives : elles repartent d'une liste de boutons vide (aucun clic ne doit passer au travers).
-      else if (this.overlay === 'missions' || this.overlay === 'difficulty') { this.buttons = []; this.drawMissions(ctx, game, W, H); }
-      else if (this.overlay === 'defi') { this.buttons = []; this.drawDefi(ctx, game, W, H); }   // v033
-      else if (this.overlay === 'generating') { this.buttons = []; this.drawGenerating(ctx, game, W, H); }
-      else if (this.overlay === 'shop') { this.buttons = []; if (!this.shop) this.shop = new CC.Shop(this); this.shop.draw(ctx, game, W, H); }
-      else if (this.overlay === 'ad' && game.ads) { this.buttons = []; game.ads.draw(ctx, game, W, H, this); }
-      if (game.state === 'MENU' && !this.overlay && game.ads) this.drawMenuBanner(ctx, game, W, H);
-      if (game.notice) {   // v031 : message passager (achat confirmé au retour du paiement)
-        const T = -(this.offsetY || 0), HH = this.fullH || H, px = this.fitPx([game.notice], W * 0.86, HH * 0.004);
-        ctx.fillStyle = 'rgba(10,40,14,0.9)'; ctx.fillRect(W * 0.04, T + HH * 0.012, W * 0.92, px * 13);
-        ctx.strokeStyle = CC.CONFIG.hud.colors.green; ctx.lineWidth = Math.max(1, px * 0.5); ctx.strokeRect(W * 0.04, T + HH * 0.012, W * 0.92, px * 13);
-        this.text(ctx, game.notice, W / 2, T + HH * 0.012 + px * 3, px, CC.CONFIG.hud.colors.green, { align: 'center' });
+      else if (game.paused && !ov) this.drawPause(ctx, game, W, H);
+      if (ov) {
+        this.buttons = []; this.regions = [];   // une surcouche est exclusive : aucun toucher ne passe au travers
+        if (ov === 'settings') this.drawSettings(ctx, game, W, H);
+        else if (ov === 'help') this.drawHelp(ctx, game, W, H);
+        else if (ov === 'missions') this.drawMissions(ctx, game, W, H);
+        else if (ov === 'defi') this.drawDefi(ctx, game, W, H);
+        else if (ov === 'generating') this.drawGenerating(ctx, game, W, H);
+        else if (ov === 'shop') { if (!this.shop) this.shop = new CC.Shop(this); this.shop.draw(ctx, game, W, H); }
+        else if (ov === 'ad' && game.ads) game.ads.draw(ctx, game, W, H, this);
       }
-      if (game.state === 'BOOT') { this.dim(ctx, W, H, 1); this.text(ctx, 'LOADING...', W / 2, H / 2, H * 0.004, col.white, { align: 'center' }); }
-      if (game.genDebug && game.level && game.level.plan && CC.Gen.drawDebugOverlay && !this.overlay) CC.Gen.drawDebugOverlay(ctx, game, W, H, this);   // v032
+      if (game.state === 'MENU' && !ov && game.ads) this.drawMenuBanner(ctx, game, W, H);
+      if (this.modal) this.drawModal(ctx, W, H);
+      this.drawToasts(ctx, W, H);
+      if (game.state === 'BOOT') { this.dim(ctx, W, H, 1); this.text(ctx, 'CHARGEMENT...', W / 2, H / 2, H * 0.004, col.white, { align: 'center' }); }
+      game.hudCanvas.style.cursor = this.hover >= 0 ? 'pointer' : (this.active() ? 'default' : '');   // souris : main sur les boutons
+      if (game.genDebug && game.level && game.level.plan && CC.Gen.drawDebugOverlay && !ov) CC.Gen.drawDebugOverlay(ctx, game, W, H, this);   // v032
     }
 
     /* v033 : menu d'accueil à trois gros boutons (façon Block Blast) : CLASSIQUE (couloir infini), DÉFI (cartes numérotées
-     * à étoiles + les 9 niveaux d'origine), BOUTIQUE. Plein écran, portrait comme paysage ; boutons ≥ 44 points. */
+     * à étoiles + les 9 niveaux d'origine), BOUTIQUE. v033-ux : bouton de réglages en haut à droite. Plein écran, portrait
+     * comme paysage ; tous les boutons font au moins 48 points. */
     drawMenu(ctx, game, W, H) {
       this.dim(ctx, W, H, 0.5);
       const col = CC.CONFIG.hud.colors, T = -(this.offsetY || 0), HH = this.fullH || H, P = this.portrait, touch = this.isTouch();
-      const Y = (f) => T + HH * f, banner = touch && P && game.ads && game.ads.enabled() ? HH * 0.075 : 0;
-      this.text(ctx, 'COLD IMPACT', W / 2, Y(P ? 0.07 : 0.07), this.fitPx(['COLD IMPACT'], W * (P ? 0.86 : 0.6), HH * (P ? 0.009 : 0.0125)), col.white, { align: 'center', skew: -0.22 });
+      const Y = (f) => T + HH * f, banner = touch && P && game.ads && game.ads.enabled() ? HH * 0.075 : 0, mt = this.minTap();
+      this.text(ctx, 'COLD IMPACT', W / 2, Y(P ? 0.085 : 0.07), this.fitPx(['COLD IMPACT'], W * (P ? 0.86 : 0.6), HH * (P ? 0.009 : 0.0125)), col.white, { align: 'center', skew: -0.22 });
       const tag = 'PILOTE. FROLE. PULVERISE.';
-      this.text(ctx, tag, W / 2, Y(P ? 0.135 : 0.2), this.fitPx([tag], W * 0.8, HH * 0.003), col.yellow, { align: 'center' });
+      this.text(ctx, tag, W / 2, Y(P ? 0.155 : 0.2), this.fitPx([tag], W * 0.8, HH * 0.003), col.yellow, { align: 'center' });
+      this.iconButton(ctx, { x: W - mt - W * 0.025, y: T + HH * 0.012, w: mt, h: mt }, this.iconGear, () => { this.open('settings'); }, { color: '#cfcfcf' });
       const rec = game.save.endless && game.save.endless.best, maxStars = CC.Gen.difficultyIds().length * CC.CONFIG.challenge.maps * 3;
       const stars = CC.Gen.difficultyIds().reduce((a, d) => a + game.challengeStars(d), 0);
+      const first = !(game.save.endless && game.save.endless.runs) && game.settings.tutorialDone;   // premier lancement après le tutoriel : on désigne le bouton à toucher
       const items = [
-        ['CLASSIQUE', rec ? 'RECORD ' + rec + ' M' : 'VA LE PLUS LOIN POSSIBLE', col.green, () => game.startEndless()],
-        ['DÉFI', stars + ' / ' + maxStars + ' ETOILES', '#8fd0ff', () => { this.overlay = 'defi'; }, true],
-        ['BOUTIQUE', 'APPARENCES DE ROQUETTE', col.yellow, () => { this.overlay = 'shop'; }],
+        ['CLASSIQUE', rec ? 'RECORD ' + rec + ' M' : 'VA LE PLUS LOIN POSSIBLE', col.green, () => game.startEndless(), false, first],
+        ['DÉFI', stars + ' / ' + maxStars + ' ETOILES', '#8fd0ff', () => { this.open('defi'); }, true],
+        ['BOUTIQUE', 'APPARENCES DE ROQUETTE', col.yellow, () => { this.openShop(); }],
       ];
       const bw = W * (P ? 0.84 : 0.42), bh = HH * (P ? 0.14 : 0.165), gap = HH * (P ? 0.035 : 0.03);
-      const top = P ? Y(0.24) : Y(0.29);
+      const top = P ? Y(0.25) : Y(0.29);
       const lp = this.fitPx(items.map((it) => it[0]), bw * 0.8, bh * 0.06);   // même taille pour les trois libellés
-      items.forEach((it, i) => this.bigButton(ctx, W / 2 - bw / 2, top + i * (bh + gap), bw, bh, it[0], it[1], it[2], it[3], it[4], lp));
-      const foot = T + HH - banner - HH * (P ? 0.05 : 0.07);
-      if (!touch) this.text(ctx, 'F1: TOUCHES    TAB: REGLAGES', W / 2, foot, HH * 0.0024, '#bdbdbd', { align: 'center' });
-      this.text(ctx, CC.CONFIG.version.toUpperCase(), W * 0.97, foot + HH * 0.035, HH * 0.0018, '#808080', { align: 'right' });
-    }
-
-    // v033 : gros bouton encadré avec un sous-titre ; `stars` : petite étoile devant le sous-titre
-    bigButton(ctx, x, y, w, h, label, sub, color, action, stars, labelPx) {
-      const idx = this.buttons.length, touch = this.isTouch();
-      const hot = !touch && this.mouse.x >= x && this.mouse.x <= x + w && this.mouse.y >= y && this.mouse.y <= y + h;
-      if (hot) this.hover = idx;
-      this.buttons.push({ x, y, w, h, action });
-      ctx.fillStyle = hot ? 'rgba(255,255,255,0.16)' : 'rgba(8,10,14,0.74)'; ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = color; ctx.globalAlpha = 0.18; ctx.fillRect(x, y, w * 0.025, h); ctx.globalAlpha = 1;
-      ctx.strokeStyle = color; ctx.lineWidth = Math.max(2, h * 0.03); ctx.strokeRect(x, y, w, h);
-      const lp = labelPx || this.fitPx([label], w * 0.8, h * 0.06), sp = this.fitPx([sub + '    '], w * 0.8, h * 0.022);
-      const block = lp * 7 + h * 0.1 + sp * 7, y0 = y + (h - block) / 2;
-      this.text(ctx, label, x + w / 2, y0, lp, hot ? CC.CONFIG.hud.colors.yellow : color, { align: 'center', skew: -0.18 });
-      const sy = y0 + lp * 7 + h * 0.1;
-      if (stars) {
-        const sw = CC.Font.measure(sub, sp), sx = x + w / 2 - sw / 2;
-        this.star(ctx, sx - sp * 6, sy + sp * 3.5, sp * 4, true, '#fdfd02');
-        this.text(ctx, sub, sx + sp * 0.5, sy, sp, '#dcdcdc', {});
-      } else this.text(ctx, sub, x + w / 2, sy, sp, '#dcdcdc', { align: 'center' });
-    }
-
-    // v033 : étoile à cinq branches (pleine ou en creux)
-    star(ctx, cx, cy, r, filled, color) {
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
-      ctx.closePath();
-      if (filled) { ctx.fillStyle = color; ctx.fill(); }
-      else { ctx.strokeStyle = 'rgba(200,200,200,0.55)'; ctx.lineWidth = Math.max(1, r * 0.16); ctx.stroke(); }
-    }
-    // v033 : coupe de trophée (BRONZE / ARGENT / OR), grisée tant qu'elle n'est pas gagnée
-    trophy(ctx, cx, cy, s, color, won) {
-      ctx.fillStyle = won ? color : 'rgba(120,120,120,0.35)';
-      ctx.beginPath(); ctx.moveTo(cx - s * 0.5, cy - s * 0.5); ctx.lineTo(cx + s * 0.5, cy - s * 0.5); ctx.lineTo(cx + s * 0.3, cy + s * 0.05); ctx.lineTo(cx - s * 0.3, cy + s * 0.05); ctx.closePath(); ctx.fill();
-      ctx.fillRect(cx - s * 0.07, cy + s * 0.05, s * 0.14, s * 0.25); ctx.fillRect(cx - s * 0.28, cy + s * 0.3, s * 0.56, s * 0.12);
-      ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = Math.max(1, s * 0.08);
-      for (const e of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + e * s * 0.5, cy - s * 0.3, s * 0.16, e < 0 ? Math.PI * 0.5 : -Math.PI * 0.5, e < 0 ? Math.PI * 1.5 : Math.PI * 0.5, e > 0); ctx.stroke(); }
+      items.forEach((it, i) => this.bigButton(ctx, W / 2 - bw / 2, top + i * (bh + gap), bw, bh, it[0], it[1], it[2], it[3], it[4], lp, { pulse: it[5] }));
+      this.text(ctx, CC.CONFIG.version.toUpperCase(), W * 0.97, T + HH - banner - HH * (P ? 0.05 : 0.07) + HH * 0.035, HH * 0.0018, '#808080', { align: 'right' });
     }
 
     /* v033 : écran DÉFI — onglets FACILE / MOYEN / DIFFICILE / IMPOSSIBLE (20 cartes numérotées chacune, 1 à 3 étoiles,
      * trophées à 10, 20 et 40 étoiles) et NIVEAUX (les 9 niveaux d'origine). MISSIONS LIBRES : l'ancien générateur. */
     drawDefi(ctx, game, W, H) {
       this.dim(ctx, W, H, 1);
-      const G = CC.Gen, col = CC.CONFIG.hud.colors, T = -(this.offsetY || 0), HH = this.fullH || H, P = this.portrait, touch = this.isTouch();
-      const Y = (f) => T + HH * f, pr = this.pixelRatio(), CH = CC.CONFIG.challenge;
-      this.text(ctx, 'DÉFI', W / 2, Y(0.035), this.fitPx(['DÉFI'], W * 0.4, HH * 0.008), col.white, { align: 'center', skew: -0.2 });
+      const G = CC.Gen, col = CC.CONFIG.hud.colors, T = -(this.offsetY || 0), HH = this.fullH || H, P = this.portrait;
+      const Y = (f) => T + HH * f, mt = this.minTap(), CH = CC.CONFIG.challenge, hh = mt + HH * 0.016;
+      this.backButton(ctx, W * 0.025, T + HH * 0.012, mt);
+      this.text(ctx, 'DÉFI', W / 2, T + HH * 0.012 + (mt - HH * 0.008 * 7) / 2, this.fitPx(['DÉFI'], W * 0.4, HH * 0.008), col.white, { align: 'center', skew: -0.2 });
       const ids = G.difficultyIds(), tabs = ids.concat(['levels']);
       const tab = this.defiTab && tabs.includes(this.defiTab) ? this.defiTab : 'easy';
       const lab = (id) => (id === 'levels' ? 'NIVEAUX' : G.Difficulties.get(id).label);
       const tcol = (id) => (id === 'levels' ? '#cfcfcf' : G.Difficulties.get(id).color);
       // onglets : une rangée (paysage) ou deux (portrait : FACILE MOYEN DIFFICILE / IMPOSSIBLE NIVEAUX, libellés lisibles)
-      const th = Math.max(HH * (P ? 0.05 : 0.06), touch ? 44 * pr : 0), rowsT = P ? [[0, 1, 2], [3, 4]] : [[0, 1, 2, 3, 4]];
-      const rects = [];
-      rowsT.forEach((row, ri) => row.forEach((ti, ci) => { const tw = W * 0.94 / row.length; rects[ti] = { x: W * 0.03 + ci * tw, y: Y(P ? 0.095 : 0.11) + ri * (th + HH * 0.008), w: tw }; }));
-      const tpx = Math.min(...tabs.map((id, i) => this.fitPx([lab(id)], rects[i].w * 0.84, th * 0.07)));
-      const ty = rects[tabs.length - 1].y;
-      tabs.forEach((id, i) => {
-        const x = rects[i].x, tw = rects[i].w, ty = rects[i].y, on = id === tab;
-        this.buttons.push({ x, y: ty, w: tw, h: th, action: () => { this.defiTab = id; } });
-        ctx.fillStyle = on ? tcol(id) : 'rgba(255,255,255,0.05)'; ctx.globalAlpha = on ? 0.28 : 1; ctx.fillRect(x + 2, ty, tw - 4, th); ctx.globalAlpha = 1;
-        ctx.strokeStyle = on ? tcol(id) : 'rgba(244,244,244,0.3)'; ctx.lineWidth = Math.max(1, th * (on ? 0.05 : 0.02)); ctx.strokeRect(x + 2, ty, tw - 4, th);
-        this.text(ctx, lab(id), x + tw / 2, ty + th / 2 - tpx * 3.5, tpx, on ? tcol(id) : '#bdbdbd', { align: 'center' });
-      });
-      const areaTop = ty + th + HH * 0.03, areaBot = Y(P ? 0.86 : 0.85);
+      const th = Math.max(HH * (P ? 0.05 : 0.06), mt), rowsT = P ? [[0, 1, 2], [3, 4]] : [[0, 1, 2, 3, 4]], ty0 = T + hh + HH * 0.006;
+      const tpx = Math.min(...rowsT.map((row) => this.fitPx(row.map((ti) => lab(tabs[ti])), W * 0.94 / row.length * 0.84, th * 0.044)));   // même taille pour tous les onglets
+      rowsT.forEach((row, ri) => row.forEach((ti, ci) => {
+        const tw = W * 0.94 / row.length, id = tabs[ti], on = id === tab;
+        const px = tpx, r = { x: W * 0.03 + ci * tw + 2, y: ty0 + ri * (th + HH * 0.008), w: tw - 4, h: th };
+        const face = this.placeButton(ctx, r, null, 0, () => { this.defiTab = id; }, { color: on ? tcol(id) : '#9a9a9a', fill: on ? 'rgba(255,255,255,0.1)' : 'rgba(8,10,14,0.6)', fx: 'tab' });
+        this.text(ctx, lab(id), face.x + face.w / 2, face.y + (face.h - px * 7) / 2, px, on ? tcol(id) : '#bdbdbd', { align: 'center' });
+        if (on) { ctx.fillStyle = tcol(id); ctx.fillRect(face.x, face.y + face.h - th * 0.07, face.w, th * 0.07); }
+      }));
+      const tabsBottom = ty0 + rowsT.length * (th + HH * 0.008);
+      const footH = mt * 1.15, footY = T + HH - footH - HH * 0.02, areaTop = tabsBottom + HH * 0.02, areaBot = footY - HH * 0.015;
       if (tab === 'levels') this.drawDefiLevels(ctx, game, W, areaTop, areaBot);
       else {
         const stars = game.challengeStars(tab), D = G.Difficulties.get(tab);
@@ -164,38 +117,44 @@
           this.trophy(ctx, cx, sy + ts * 0.35, ts, tc[i], won);
           this.text(ctx, won ? names[i] : String(need), cx, sy + ts * 0.95, spx * 0.6, won ? tc[i] : '#8a8a8a', { align: 'center' });
         });
-        // grille des cartes
+        // grille des cartes : chaque carte est un bouton ≥ 48 points qui s'enfonce au toucher
         const cols = P ? 4 : 5, rows = Math.ceil(CH.maps / cols), gTop = sy + ts * 1.55, gh = areaBot - gTop;
         const cw = W * 0.94 / cols, chh = Math.min(gh / rows, cw * 1.05), gx = W * 0.03, npx = this.fitPx(['20'], cw * 0.5, chh * 0.05);
         for (let n = 1; n <= CH.maps; n++) {
-          const c = (n - 1) % cols, rr = Math.floor((n - 1) / cols), x = gx + c * cw + 3, y = gTop + rr * chh + 3, w = cw - 6, h = chh - 6;
+          const c = (n - 1) % cols, rr = Math.floor((n - 1) / cols);
+          let x = gx + c * cw + 3, y = gTop + rr * chh + 3, w = cw - 6, h = chh - 6;
           const open = game.challengeOpen(tab, n), rec = game.challengeRec(tab, n);
+          const st = this.hitRect({ x, y, w, h }, () => game.startChallenge(tab, n), { disabled: !open, msg: 'TERMINE LA CARTE ' + (n - 1) + ' POUR OUVRIR CELLE-CI' });
+          if (st.pressed) { x += w * 0.03; y += h * 0.03; w *= 0.94; h *= 0.94; }
           ctx.fillStyle = open ? (rec ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)') : 'rgba(255,255,255,0.015)'; ctx.fillRect(x, y, w, h);
+          if (st.pressed) { ctx.fillStyle = D.color; ctx.globalAlpha = 0.25; ctx.fillRect(x, y, w, h); ctx.globalAlpha = 1; }
           ctx.strokeStyle = open ? D.color : 'rgba(120,120,120,0.35)'; ctx.globalAlpha = open ? (rec ? 1 : 0.6) : 1; ctx.lineWidth = Math.max(1, h * 0.025); ctx.strokeRect(x, y, w, h); ctx.globalAlpha = 1;
-          if (open) this.buttons.push({ x, y, w, h, action: () => game.startChallenge(tab, n) });
-          this.text(ctx, String(n), x + w / 2, y + h * 0.18, npx, open ? col.white : '#505050', { align: 'center' });
+          if (!open) this.iconLock(ctx, x + w / 2, y + h * 0.4, Math.min(w, h) * 0.2, '#555');
+          else this.text(ctx, String(n), x + w / 2, y + h * 0.18, npx, col.white, { align: 'center' });
           const sr = Math.min(w * 0.12, h * 0.12);
-          for (let k = 0; k < 3; k++) this.star(ctx, x + w / 2 + (k - 1) * sr * 2.3, y + h * 0.74, sr, rec && rec.s > k, col.yellow);
+          for (let k = 0; k < 3; k++) this.star(ctx, x + w / 2 + (k - 1) * sr * 2.3, y + h * 0.74, sr, !!rec && rec.s > k, col.yellow);
         }
       }
-      // pied : missions libres (générateur à graine), retour
-      const by = Y(P ? 0.915 : 0.905), bpx = this.fitPx(['MISSIONS LIBRES'], W * (P ? 0.36 : 0.2), HH * 0.0034);
-      this.button(ctx, 'MISSIONS LIBRES', W * (P ? 0.29 : 0.38), by, bpx, () => { this.overlay = 'missions'; }, { box: true, hitW: W * (P ? 0.44 : 0.24), color: '#8fd0ff' });
-      this.button(ctx, this.key('RETOUR', 'ESC'), W * (P ? 0.76 : 0.62), by, bpx, () => { this.overlay = null; }, { box: true, hitW: W * (P ? 0.36 : 0.18) });
+      // pied : missions libres (générateur à graine)
+      const bpx = this.fitPx(['MISSIONS LIBRES'], W * 0.7, footH * 0.046);
+      this.placeButton(ctx, { x: W * 0.06, y: footY, w: W * 0.88, h: footH }, 'MISSIONS LIBRES', bpx, () => { this.open('missions'); }, { color: '#8fd0ff' });
     }
 
     // v033 : les 9 niveaux d'origine (onglet NIVEAUX du DÉFI) : une ligne par niveau, record à droite, cadenas sinon
     drawDefiLevels(ctx, game, W, top, bottom) {
-      const best = game.save.best, n = CC.Levels.length, rowH = (bottom - top) / n, x0 = W * 0.05, w = W * 0.9;
+      const best = game.save.best, n = CC.Levels.length, mt = this.minTap(), rowH = Math.max((bottom - top) / n, mt * 1.05), x0 = W * 0.05, w = W * 0.9;
       const names = CC.Levels.map((lv, i) => (i + 1) + '  ' + lv.name);
-      const px = this.fitPx(names, w * 0.6, rowH * 0.055), sub = px * 0.65;
+      const px = this.fitPx(names, w * 0.55, rowH * 0.055), sub = px * 0.65;
+      const sy = this.scrollBegin(ctx, 'levels', { x: 0, y: top, w: W, h: bottom - top }, n * rowH);
       CC.Levels.forEach((lv, i) => {
-        const open = game.isUnlocked(i), b = best[lv.id], y = top + i * rowH + rowH * 0.2;
-        if (open) this.button(ctx, names[i], x0 + px * 3, y, px, () => game.startLevel(i), { align: 'left', hitW: w, box: true });
-        else { ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(x0, y - px * 2, w, Math.max(px * 11, 44 * this.pixelRatio())); this.text(ctx, names[i], x0 + px * 3, y, px, '#5a5a5a'); }
-        const info = b ? U.formatTime(b.time) : open ? '--:--,--' : 'VERROUILLE';
-        this.text(ctx, info, x0 + w - px * 3, y + px * 1.6, sub, open ? (b ? '#cfcfcf' : '#8a8a8a') : '#6a6a6a', { align: 'right' });
+        const open = game.isUnlocked(i), b = best[lv.id], y = top + i * rowH - sy, r = { x: x0, y: y + rowH * 0.06, w, h: rowH * 0.88 };
+        this.placeButton(ctx, r, null, 0, () => game.startLevel(i), { color: open ? '#f4f4f4' : '#6a6a6a', locked: !open, msg: 'TERMINE LE NIVEAU ' + i + ' POUR OUVRIR CELUI-CI' });
+        const ty = r.y + (r.h - px * 7) / 2;
+        this.text(ctx, names[i], x0 + px * 4, ty, px, open ? '#f4f4f4' : '#6a6a6a', {});
+        if (!open) this.iconLock(ctx, x0 + w - px * 5, r.y + r.h / 2, px * 2.2, '#6a6a6a');
+        else this.text(ctx, b ? U.formatTime(b.time) : '--:--,--', x0 + w - px * 4, r.y + (r.h - sub * 7) / 2, sub, b ? '#cfcfcf' : '#8a8a8a', { align: 'right' });
       });
+      this.scrollEnd(ctx);
     }
 
     // v030 : bannière publicitaire d'exemple, en bas du menu principal
@@ -207,15 +166,15 @@
     }
 
     /* v032 : GÉNÉRATEUR DE MISSIONS — quatre difficultés, mission du jour, graine choisie ou aléatoire, dernières missions.
-     * Plein écran (portrait comme paysage), boutons encadrés ≥ 44 points sur écran tactile. */
+     * Plein écran (portrait comme paysage), boutons encadrés ≥ 48 points. */
     drawMissions(ctx, game, W, H) {
       this.dim(ctx, W, H, 1);
       const G = CC.Gen, col = CC.CONFIG.hud.colors, T = -(this.offsetY || 0), HH = this.fullH || H;
-      const touch = this.isTouch(), P = this.portrait;
+      const P = this.portrait, mt = this.minTap();
       const fit = (t, w, m) => this.fitPx([t], W * w, m);
       const Y = (f) => T + HH * f;
-      this.text(ctx, 'COLD IMPACT', W / 2, Y(0.04), fit('COLD IMPACT', 0.5, HH * 0.004), '#bdbdbd', { align: 'center', skew: -0.22 });
-      this.text(ctx, 'GÉNÉRATEUR DE MISSIONS', W / 2, Y(0.085), fit('GÉNÉRATEUR DE MISSIONS', 0.9, HH * (P ? 0.006 : 0.0085)), col.white, { align: 'center', skew: -0.2 });
+      this.backButton(ctx, W * 0.025, T + HH * 0.012, mt);
+      this.text(ctx, 'MISSIONS LIBRES', W / 2, T + HH * 0.012 + (mt - HH * 0.006 * 7) / 2, fit('MISSIONS LIBRES', P ? 0.5 : 0.6, HH * 0.006), col.white, { align: 'center', skew: -0.2 });
       const seedTxt = this.seedChoice !== undefined && this.seedChoice !== null ? 'GRAINE ' + this.seedChoice : 'GRAINE ALEATOIRE - CHAQUE MISSION EST UNIQUE';
       this.text(ctx, seedTxt, W / 2, Y(0.16), fit(seedTxt, 0.9, HH * 0.0026), this.seedChoice != null ? col.yellow : '#c8c8c8', { align: 'center' });
       // quatre difficultés
@@ -225,11 +184,11 @@
         const D = G.Difficulties.get(id), y = Y(top + i * gap);
         const go = () => { const sd = this.seedChoice != null ? this.seedChoice : null; game.requestMission(id, sd); };
         if (P) {
-          this.button(ctx, D.label, W / 2, y, bpx, go, { color: D.color, box: true, hitW: W * 0.84 });
-          const bh = Math.max(bpx * 11, touch ? 44 * this.pixelRatio() : 0);   // hauteur réelle du bouton (≥ 44 points au doigt)
+          this.button(ctx, D.label, W / 2, y, bpx, go, { color: D.color, hitW: W * 0.84 });
+          const bh = Math.max(bpx * 11, mt);   // hauteur réelle du bouton
           this.text(ctx, D.blurb, W / 2, y - bpx * 2 + bh + bpx * 0.8, fit(D.blurb, 0.84, HH * 0.0021), '#a8a8a8', { align: 'center' });
         } else {
-          this.button(ctx, D.label, W * 0.36, y, bpx, go, { color: D.color, box: true, hitW: W * 0.26 });
+          this.button(ctx, D.label, W * 0.36, y, bpx, go, { color: D.color, hitW: W * 0.26 });
           this.text(ctx, D.blurb, W * 0.51, y + bpx * 1.2, HH * 0.0024, '#b8b8b8', { align: 'left' });
         }
       });
@@ -237,20 +196,19 @@
       const dl = G.daily(), dD = G.Difficulties.get(dl.difficulty), done = game.save.daily && game.save.daily[dl.id];
       const dy = Y(top + 4 * gap + 0.02);
       const dLabel = 'MISSION DU JOUR  ' + dl.label + '  ' + dD.label;
-      this.button(ctx, dLabel, W / 2, dy, fit(dLabel, 0.8, HH * 0.0034), () => game.requestMission(dl.difficulty, dl.seed, { daily: dl.id }), { color: '#8fd0ff', box: true, hitW: W * (P ? 0.84 : 0.6) });
+      this.button(ctx, dLabel, W / 2, dy, fit(dLabel, 0.8, HH * 0.0034), () => game.requestMission(dl.difficulty, dl.seed, { daily: dl.id }), { color: '#8fd0ff', hitW: W * (P ? 0.84 : 0.6) });
       this.text(ctx, 'GRAINE ' + dl.seed + (done !== undefined ? '   RECORD ' + U.formatTime(done) : '   MEME CARTE POUR TOUS'), W / 2, dy + HH * 0.042, fit('GRAINE 000000000   MEME CARTE POUR TOUS', 0.8, HH * 0.0022), '#9ab8cc', { align: 'center' });
       // graine : saisir / revenir à l'aléatoire
       const sy = dy + HH * 0.095, spx = fit('CHOISIR UNE GRAINE', P ? 0.36 : 0.22, HH * 0.003);
-      this.button(ctx, 'CHOISIR UNE GRAINE', W * (P ? 0.29 : 0.4), sy, spx, () => this.openSeedInput(game), { box: true, hitW: W * (P ? 0.44 : 0.24) });
-      this.button(ctx, 'ALEATOIRE', W * (P ? 0.76 : 0.62), sy, spx, () => { this.seedChoice = null; }, { box: true, hitW: W * (P ? 0.36 : 0.14), color: this.seedChoice == null ? '#7a7a7a' : undefined });
+      this.button(ctx, 'CHOISIR UNE GRAINE', W * (P ? 0.29 : 0.4), sy, spx, () => this.openSeedInput(game), { hitW: W * (P ? 0.44 : 0.24) });
+      this.button(ctx, 'ALEATOIRE', W * (P ? 0.76 : 0.62), sy, spx, () => { this.seedChoice = null; }, { hitW: W * (P ? 0.36 : 0.14), color: this.seedChoice == null ? '#7a7a7a' : undefined });
       // dernières missions jouées (rejouer une graine)
       const hist = (game.save.missions || []).slice(0, P ? 3 : 2);
       if (hist.length) this.text(ctx, 'DERNIERES MISSIONS', W / 2, sy + HH * 0.075, fit('DERNIERES MISSIONS', 0.5, HH * 0.0024), '#8a8a8a', { align: 'center' });
       hist.forEach((h, i) => {
         const D = G.Difficulties.get(h.d) || G.Difficulties.get('easy'), lbl = h.seed + '  ' + D.label + '  ' + U.formatTime(h.t);
-        this.button(ctx, lbl, W / 2, sy + HH * (0.115 + i * 0.058), fit(lbl, 0.7, HH * 0.0028), () => game.requestMission(h.d, h.seed), { box: true, hitW: W * (P ? 0.84 : 0.5), color: '#cfcfcf' });
+        this.button(ctx, lbl, W / 2, sy + HH * (0.115 + i * 0.058), fit(lbl, 0.7, HH * 0.0028), () => game.requestMission(h.d, h.seed), { hitW: W * (P ? 0.84 : 0.5), color: '#cfcfcf' });
       });
-      this.button(ctx, this.key('RETOUR', 'ESC'), W / 2, Y(0.93), fit('RETOUR (ESC)', 0.5, HH * 0.004), () => { this.overlay = game.state === 'MENU' ? 'defi' : null; this.closeSeedInput(); }, { box: touch });   // v033 : retour à l'écran DÉFI
       if (this.diffChoice && G.Difficulties.has(this.diffChoice) && this.seedChoice != null) {   // lien partagé : difficulté suggérée
         this.text(ctx, 'MISSION PARTAGEE : ' + G.Difficulties.get(this.diffChoice).label, W / 2, Y(0.19), fit('MISSION PARTAGEE : IMPOSSIBLE', 0.6, HH * 0.0024), '#8fd0ff', { align: 'center' });
       }
@@ -270,7 +228,7 @@
       let box = document.getElementById('cc-seedbox');
       if (!box) {
         box = document.createElement('div'); box.id = 'cc-seedbox';
-        box.innerHTML = '<span>GRAINE</span><input id="cc-seed" maxlength="14" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="cc-seed-ok">OK</button><button id="cc-seed-x">X</button>';
+        box.innerHTML = '<span>GRAINE</span><input id="cc-seed" maxlength="14" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="cc-seed-ok" aria-label="Valider">OK</button><button id="cc-seed-x" aria-label="Annuler">X</button>';
         document.body.appendChild(box);
         const ok = () => { const v = CC.Gen.parseSeed(document.getElementById('cc-seed').value); if (v !== null) this.seedChoice = v; this.closeSeedInput(); };
         document.getElementById('cc-seed-ok').onclick = ok;
@@ -283,192 +241,9 @@
       setTimeout(() => inp.focus(), 30);
     }
     closeSeedInput() { const box = document.getElementById('cc-seedbox'); if (box) { box.style.display = 'none'; const i = document.getElementById('cc-seed'); if (i) i.blur(); } }
-
-    // v022 : son et musique coupés / remis d'un geste (le volume précédent est conservé) ; sur écran tactile, pas de
-    // rappel de touches clavier et des boutons plus gros
-    toggleVolume(game, key) {
-      const s = game.settings, keep = '_' + key;
-      if (s[key] > 0) { s[keep] = s[key]; s[key] = 0; } else s[key] = s[keep] || CC.CONFIG.audio[key];
-      game.applySettings();
-    }
-    drawPause(ctx, game, W, H) {
-      this.dim(ctx, W, H, 0.55);
-      const touch = document.body.classList.contains('cc-touch'), s = game.settings;
-      const px = H * (touch ? 0.0056 : 0.0042), step = touch ? 0.115 : 0.09;
-      const pT = touch && this.portrait ? -(this.offsetY || 0) : 0, pH = touch && this.portrait ? (this.fullH || H) : H;
-      this.text(ctx, 'PAUSED', W / 2, pT + pH * (touch ? 0.09 : 0.2), this.fitPx(['PAUSED'], W * 0.6, H * 0.009), '#f4f4f4', { align: 'center', skew: -0.2 });
-      const rows = [
-        ['RESUME', () => game.resume()],
-        ['SOUND: ' + (s.sfx > 0 ? 'ON' : 'OFF'), () => this.toggleVolume(game, 'sfx')],
-        ['MUSIC: ' + (s.music > 0 ? 'ON' : 'OFF'), () => this.toggleVolume(game, 'music')],
-        [touch ? 'RESTART' : 'RESTART (R)', () => { game.resume(); game.restartLevel(); }],
-      ];
-      // v023 : niveau suivant, seulement s'il est débloqué (niveau en cours déjà terminé une fois)
-      const next = game.nextUnlocked();
-      if (next >= 0) rows.push(['NEXT LEVEL', () => { game.resume(); game.startLevel(next); }]);
-      if (!touch) rows.push(['SETTINGS (TAB)', () => { this.overlay = 'settings'; }]);
-      if (touch) {   // v024 : intensité des vibrations (OFF / LOW / MEDIUM / HIGH)
-        const names = ['OFF', 'LOW', 'MEDIUM', 'HIGH'], v = s.vibration !== undefined ? s.vibration : 2;
-        rows.splice(3, 0, ['VIBRATION: ' + names[v], () => {
-          s.vibration = (v + 1) % 4;
-          if (CC.Haptics) { CC.Haptics.setLevel(s.vibration); CC.Haptics.tick('fire'); }   // on sent tout de suite la nouvelle force
-          game.applySettings();
-        }]);
-      }
-      if (touch) {   // v030 : qualité graphique et publicités d'exemple, réglables en partie
-        rows.push(['GRAPHICS: ' + this.graphicsLabel(game), () => this.cycleGraphics(game)]);
-        rows.push(['SAMPLE ADS: ' + (s.ads === false ? 'OFF' : 'ON'), () => { s.ads = s.ads === false; game.applySettings(); }]);
-      }
-      if (game.generated && game.mission && !game.mission.challenge) rows.splice(rows.findIndex((r) => r[0].startsWith('RESTART')) + 1, 0, ['NOUVELLE MISSION', () => { game.resume(); game.requestMission(game.mission.difficulty); }]);   // v032
-      rows.push(['MAIN MENU', () => game.toMenu()]);
-      if (game.generated && game.mission) {   // v032 : graine visible (partage, défi)
-        const m = game.mission, t = m.challenge ? 'DÉFI ' + m.label + '  CARTE ' + m.challenge.n + '/' + CC.CONFIG.challenge.maps : 'GRAINE ' + m.seed + '  ' + m.label + '  ' + m.biome;
-        const pT2 = this.portrait ? -(this.offsetY || 0) : 0, pH2 = this.portrait ? (this.fullH || H) : H;
-        this.text(ctx, t, W / 2, pT2 + pH2 * (touch ? 0.145 : 0.29), this.fitPx([t], W * 0.9, H * 0.0028), CC.CONFIG.hud.colors.yellow, { align: 'center' });
-      }
-      if (touch) {   // v030 : pleine hauteur de l'écran, police ajustée à la largeur, un bouton ≥ 44 points par ligne
-        const T = this.portrait ? -(this.offsetY || 0) : 0, HH = this.portrait ? (this.fullH || H) : H;
-        const top = T + HH * 0.2, gap = Math.min(HH * 0.085, (HH * 0.74) / rows.length);
-        const bpx = this.fitPx(rows.map((r) => r[0]), W * 0.8, Math.min(px, gap * 0.07));
-        rows.forEach((r, i) => this.button(ctx, r[0], W / 2, top + i * gap, bpx, r[1], { hitW: W * 0.84 }));
-        return;
-      }
-      const top = 0.36, gap = Math.min(step, (0.95 - top) / rows.length);   // v024 : 7 lignes tiennent à l'écran
-      rows.forEach((r, i) => this.button(ctx, r[0], W / 2, H * (top + i * gap), px, r[1]));
-    }
-
-    // v030 : GRAPHICS : AUTO (niveau choisi par le jeu, affiché entre parenthèses) → HIGH → MEDIUM → LOW → AUTO
-    graphicsLabel(game) {
-      const g = game.settings.graphics || 'auto', t = game.quality ? game.quality.tier : null;
-      const short = { high: 'HIGH', medium: 'MED', low: 'LOW' };
-      return g === 'auto' ? 'AUTO' + (t ? ' (' + short[t] + ')' : '') : g.toUpperCase();
-    }
-    cycleGraphics(game) {
-      const order = ['auto', 'high', 'medium', 'low'], s = game.settings;
-      s.graphics = order[(order.indexOf(s.graphics || 'auto') + 1) % order.length];
-      if (game.quality) game.quality.apply(s.graphics === 'auto' ? game.quality.initial() : s.graphics);
-      game.applySettings();
-    }
-
-    drawResults(ctx, game, W, H) {
-      if (game.results && (game.results.endless || game.results.challenge)) { this.drawResultsV33(ctx, game, W, H); return; }
-      this.dim(ctx, W, H, 0.5);
-      const r = game.results, col = CC.CONFIG.hud.colors;
-      // v030 : en portrait sur téléphone, toute la hauteur de l'écran et des boutons ≥ 44 points bien espacés
-      const full = this.portrait && this.isTouch(), T = full ? -(this.offsetY || 0) : 0, HH = full ? (this.fullH || H) : H;
-      const Y = (f) => T + HH * f, fit = (t, maxPx) => this.fitPx([t], W * 0.9, maxPx);
-      this.text(ctx, r.title, W / 2, Y(full ? 0.14 : 0.2), fit(r.title, H * (this.portrait ? 0.0055 : 0.008)), col.white, { align: 'center', skew: -0.2 });   // v017 : « ALL TARGETS DESTROYED » tient dans la largeur
-      const px = full ? fit('BEST  0:00,00  NEW RECORD!', H * 0.0042) : H * 0.0042;
-      this.text(ctx, 'TIME  ' + U.formatTime(r.time), W / 2, Y(full ? 0.25 : 0.36), px, col.white, { align: 'center' });
-      this.text(ctx, 'STYLE ' + U.formatInt(r.style), W / 2, Y(full ? 0.3 : 0.43), px, col.white, { align: 'center' });
-      if (r.bestTime) this.text(ctx, 'BEST  ' + U.formatTime(r.bestTime) + (r.newRecord ? '  NEW RECORD!' : ''), W / 2, Y(full ? 0.35 : 0.5), px * 0.72, r.newRecord ? col.yellow : '#bdbdbd', { align: 'center' });
-      // v031 : plus d'argent gagné en jouant (les cosmétiques se débloquent dans la boutique : paiement ou publicité)
-      const ads = game.ads, via = (fn) => () => (ads ? ads.beforeContinue(fn) : fn());
-      const labels = [], acts = [];
-      labels.push(this.key('RETRY', 'CLICK')); acts.push([via(() => game.restartLevel()), col.yellow]);
-      if (game.generated && game.mission) {   // v032 : enchaîner une nouvelle mission de même difficulté, ou changer
-        labels.push('NOUVELLE MISSION'); acts.push([via(() => game.requestMission(game.mission.difficulty)), null]);
-        labels.push('MISSIONS'); acts.push([via(() => { this.overlay = 'missions'; }), null]);
-        const m = game.mission, t = 'GRAINE ' + m.seed + '  ' + m.label + (r.seedBest !== undefined ? '   RECORD ' + U.formatTime(r.seedBest) : '');
-        this.text(ctx, t, W / 2, Y(full ? 0.405 : 0.555), this.fitPx([t], W * 0.9, H * 0.0028), r.seedRecord ? col.yellow : '#bdbdbd', { align: 'center' });
-      }
-      else if (game.levelIndex < CC.Levels.length - 1) { labels.push(this.key('NEXT LEVEL', 'N')); acts.push([via(() => game.startLevel(game.levelIndex + 1)), null]); }
-      labels.push(this.key('MAIN MENU', 'ESC')); acts.push([via(() => game.toMenu()), null]);
-      const top = Y(full ? 0.48 : 0.63), gap = full ? HH * 0.09 : H * 0.08;
-      const bpx = full ? this.fitPx(labels, W * 0.78, px) : px;
-      labels.forEach((l, i) => this.button(ctx, l, W / 2, top + i * gap, i === 0 && acts[0][1] === '#8fd0ff' && !full ? px * 0.8 : bpx, acts[i][0], { color: acts[i][1] || undefined, box: acts[i][1] === '#8fd0ff' || undefined, hitW: full ? W * 0.84 : undefined }));
-    }
-
-    /* v033 : résultats du mode CLASSIQUE (distance, record, cause) et du DÉFI (étoiles, temps visé pour la suivante,
-     * trophée gagné). Plein écran en portrait ; le premier bouton (REJOUER) est le plus visible. */
-    drawResultsV33(ctx, game, W, H) {
-      this.dim(ctx, W, H, 0.62);
-      const r = game.results, col = CC.CONFIG.hud.colors, full = this.portrait && this.isTouch();
-      const T = full ? -(this.offsetY || 0) : 0, HH = full ? (this.fullH || H) : H, Y = (f) => T + HH * f;
-      const fit = (t, w, m) => this.fitPx([t], W * w, m);
-      const ads = game.ads, via = (fn) => () => (ads ? ads.beforeContinue(fn) : fn());
-      const acts = [];
-      if (r.endless) {
-        this.text(ctx, r.title, W / 2, Y(0.12), fit(r.title, 0.9, HH * 0.009), col.white, { align: 'center', skew: -0.2 });
-        const rl = r.newRecord || r.firstRun ? 'NOUVEAU RECORD !' : 'RECORD ' + r.best + ' M';
-        this.text(ctx, rl, W / 2, Y(0.25), fit(rl, 0.8, HH * 0.005), r.newRecord || r.firstRun ? col.yellow : '#cfcfcf', { align: 'center' });
-        const l2 = 'PALIER ' + r.stage.label + '    CAUSE : ' + r.cause;
-        this.text(ctx, l2, W / 2, Y(0.33), fit(l2, 0.9, HH * 0.003), '#dcdcdc', { align: 'center' });
-        const l3 = 'STYLE ' + U.formatInt(r.style) + '    TEMPS ' + U.formatTime(r.time);
-        this.text(ctx, l3, W / 2, Y(0.39), fit(l3, 0.9, HH * 0.003), '#bdbdbd', { align: 'center' });
-        acts.push(['REJOUER', col.yellow, via(() => game.restartLevel())], ['MENU', null, via(() => game.toMenu())]);
-      } else {
-        const c = r.challenge, D = CC.Gen.Difficulties.get(c.diff), ttl = 'CARTE ' + c.n + ' TERMINÉE';
-        this.text(ctx, ttl, W / 2, Y(0.08), fit(ttl, 0.9, HH * 0.008), col.white, { align: 'center', skew: -0.2 });
-        this.text(ctx, 'DÉFI ' + D.label, W / 2, Y(0.165), fit('DÉFI IMPOSSIBLE', 0.6, HH * 0.0032), D.color, { align: 'center' });
-        const sr = Math.min(W * 0.07, HH * 0.045);
-        for (let k = 0; k < 3; k++) this.star(ctx, W / 2 + (k - 1) * sr * 2.6, Y(0.27), sr, c.stars > k, col.yellow);
-        const l1 = 'TEMPS ' + U.formatTime(r.time) + '    MEILLEUR ' + U.formatTime(c.best);
-        this.text(ctx, l1, W / 2, Y(0.35), fit(l1, 0.9, HH * 0.0034), col.white, { align: 'center' });
-        const l2 = c.next ? (c.stars + 1) + ' ETOILES EN ' + U.formatTime(c.next) : 'PARFAIT !';
-        this.text(ctx, l2, W / 2, Y(0.41), fit(l2, 0.8, HH * 0.003), c.next ? '#cfcfcf' : col.yellow, { align: 'center' });
-        if (c.trophyAfter > c.trophyBefore) {
-          const tn = ['BRONZE', 'ARGENT', 'OR'][c.trophyAfter - 1], tl = 'NOUVEAU TROPHÉE : ' + tn;
-          this.text(ctx, tl, W / 2, Y(0.465), fit(tl, 0.9, HH * 0.0034), ['#d08a4a', '#d0d8e0', '#ffd23a'][c.trophyAfter - 1], { align: 'center' });
-        }
-        acts.push(['REJOUER', col.yellow, via(() => game.restartLevel())]);
-        if (c.n < CC.CONFIG.challenge.maps) acts.push(['CARTE SUIVANTE', D.color, via(() => game.startChallenge(c.diff, c.n + 1))]);
-        acts.push(['DÉFI', '#8fd0ff', via(() => { game.toMenu(); this.overlay = 'defi'; this.defiTab = c.diff; })], ['MENU', null, via(() => game.toMenu())]);
-      }
-      const top = Y(r.endless ? 0.5 : 0.54), gap = HH * (full ? 0.095 : 0.1);
-      const bpx = this.fitPx(acts.map((a) => a[0]), W * (full ? 0.7 : 0.3), HH * 0.0045);
-      acts.forEach((a, i) => this.button(ctx, a[0], W / 2, top + i * gap, bpx, a[2], { color: a[1] || undefined, box: true, hitW: W * (full ? 0.84 : 0.4) }));
-    }
-
-    drawSettings(ctx, game, W, H) {
-      this.dim(ctx, W, H, 0.7);
-      const s = game.settings, px = H * 0.0036;
-      this.text(ctx, 'SETTINGS', W / 2, H * 0.12, H * 0.008, '#f4f4f4', { align: 'center', skew: -0.2 });
-      const rows = [
-        ['SENSITIVITY', U.formatDec(s.sensitivity * 1000, 1), (d) => { s.sensitivity = U.clamp(s.sensitivity + d * 0.0002, 0.0004, 0.006); }],
-        ['INVERT Y', s.invertY ? 'ON' : 'OFF', () => { s.invertY = !s.invertY; }],
-        ['MUSIC', Math.round(s.music * 100) + '%', (d) => { s.music = U.clamp(Math.round((s.music + d * 0.1) * 10) / 10, 0, 1); }],
-        ['SOUND FX', Math.round(s.sfx * 100) + '%', (d) => { s.sfx = U.clamp(Math.round((s.sfx + d * 0.1) * 10) / 10, 0, 1); }],
-        ['POST FX', s.postfx ? 'ON' : 'OFF', () => { s.postfx = !s.postfx; }],
-        ['SHOW FPS', game.debug ? 'ON' : 'OFF', () => { game.debug = !game.debug; }],
-        ['GRAPHICS', this.graphicsLabel(game), () => this.cycleGraphics(game)],
-        ['SAMPLE ADS', s.ads === false ? 'OFF' : 'ON', () => { s.ads = s.ads === false; }],
-      ];
-      rows.forEach((row, i) => {
-        const y = H * (0.26 + i * 0.07);
-        this.text(ctx, row[0], W * 0.3, y, px, '#d8d8d8');
-        this.button(ctx, '< ' + row[1] + ' >', W * 0.68, y, px, (dir) => { row[2](dir); game.applySettings(); });
-      });
-      this.button(ctx, 'BACK (TAB)', W / 2, H * 0.84, px, () => { this.overlay = null; });
-    }
-
-    drawBinds(ctx, game, W, H) {
-      this.dim(ctx, W, H, 0.7);
-      const px = H * 0.0032;
-      this.text(ctx, 'BINDS', W / 2, H * 0.1, H * 0.008, '#f4f4f4', { align: 'center', skew: -0.2 });
-      const b = [['W,A,S,D', 'STEER 360 (ALSO Z,Q,S,D OR ARROWS)'], ['SPACE (HOLD)', 'ENGINE (0,5S FREE, THEN FUEL)'], ['MOUSE', 'AIM (OPTIONAL)'],
-        ['LEFT CLICK', 'FIRE / RESPAWN AT LAUNCHER'], ['RIGHT CLICK (HOLD)', 'GRAPPLE HOOK'], ['SHIFT (HOLD)', 'RETRO BURNERS'], ['R', 'RESET'], ['ESC', 'MENU / PAUSE'], ['TAB', 'SETTINGS'], ['F1', 'BINDS']];
-      b.forEach((row, i) => {
-        const y = H * (0.25 + i * 0.058);
-        this.text(ctx, row[0], W * 0.1, y, px, CC.CONFIG.hud.colors.yellow);   // v010 : 0,2 → 0,1, « RIGHT CLICK (HOLD) » chevauchait sa description
-        this.text(ctx, row[1], W * 0.45, y, px, '#e8e8e8');
-      });
-      this.button(ctx, 'BACK (F1)', W / 2, H * 0.88, px, () => { this.overlay = null; });
-    }
-
-    click(x, y) {
-      for (const b of this.buttons) {
-        if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
-          const dir = x < b.x + b.w * 0.35 ? -1 : 1;
-          this.game.audio.play('ui');
-          if (CC.Touch && CC.Touch.active && CC.Haptics) CC.Haptics.tick('button');   // v024 : chaque bouton vibre (mobile)
-          b.action(dir);
-          return true;
-        }
-      }
-      return false;
-    }
   }
+  // les composants communs, accesseurs compris (overlay)
+  Object.defineProperties(UI.prototype, Object.getOwnPropertyDescriptors(CC.UIKit));
 
   CC.UI = UI;
 })();

@@ -90,9 +90,9 @@
       const tw = w - h * 1.3 - h * 1.1, px = Math.min(h * 0.075, tw / CC.Font.measure(c.brand, 1)), px2 = Math.min(px * 0.7, tw / CC.Font.measure(c.line, 1));
       ui.text(ctx, c.brand, x + h * 1.15, y + h * 0.2, px, c.fg, {});
       ui.text(ctx, c.line, x + h * 1.15, y + h * 0.6, px2, c.accent, {});
-      const bpx = Math.min(h * 0.03, (h * 0.95) / CC.Font.measure('SAMPLE AD', 1));
+      const bpx = Math.min(h * 0.03, (h * 0.95) / CC.Font.measure('PUB EXEMPLE', 1));
       ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x + w - h * 1.05, y + h * 0.08, h * 0.97, bpx * 11);
-      ui.text(ctx, 'SAMPLE AD', x + w - h * 0.56, y + h * 0.08 + bpx * 2, bpx, '#ffffff', { align: 'center' });
+      ui.text(ctx, 'PUB EXEMPLE', x + w - h * 0.56, y + h * 0.08 + bpx * 2, bpx, '#ffffff', { align: 'center' });
     }
 
     // interstitielle / récompensée : plein écran
@@ -112,25 +112,25 @@
       const px = ui.fitPx([c.brand], cw * 0.9, ch * 0.012);
       ui.text(ctx, c.brand, W / 2, cy + ch * 0.66, px, c.fg, { align: 'center', skew: -0.15 });
       ui.text(ctx, c.line, W / 2, cy + ch * 0.8, ui.fitPx([c.line], cw * 0.9, px * 0.55), c.accent, { align: 'center' });
-      const lab = ui.fitPx(['SAMPLE AD - FICTIONAL ADVERTISER - NO LINK'], W * 0.92, Math.max(H * 0.0026, HH * 0.0022));
-      ui.text(ctx, 'SAMPLE AD - FICTIONAL ADVERTISER - NO LINK', W / 2, cy - HH * 0.035, lab, '#9a9a9a', { align: 'center' });
+      const lab = ui.fitPx(['PUB D\'EXEMPLE - ANNONCEUR FICTIF - AUCUN LIEN'], W * 0.92, Math.max(H * 0.0026, HH * 0.0022));
+      ui.text(ctx, 'PUB D\'EXEMPLE - ANNONCEUR FICTIF - AUCUN LIEN', W / 2, cy - HH * 0.035, lab, '#9a9a9a', { align: 'center' });
       // barre de progression + commandes
       const total = total0;
-      if (nSeg > 1) ui.text(ctx, 'AD ' + (iSeg + 1) + '/' + nSeg, cx, cy - HH * 0.07, ui.fitPx(['AD 1/4'], W * 0.3, Math.max(H * 0.0026, HH * 0.0022)), '#cfcfcf', {});
+      if (nSeg > 1) ui.text(ctx, 'PUB ' + (iSeg + 1) + '/' + nSeg, cx, cy - HH * 0.07, ui.fitPx(['PUB 1/4'], W * 0.3, Math.max(H * 0.0026, HH * 0.0022)), '#cfcfcf', {});
       const k = U.clamp(A.t / total, 0, 1);
       ctx.fillStyle = '#333'; ctx.fillRect(cx, cy + ch + HH * 0.02, cw, HH * 0.01);
       ctx.fillStyle = col.yellow; ctx.fillRect(cx, cy + ch + HH * 0.02, cw * k, HH * 0.01);
       const by = cy + ch + HH * 0.09, bpx = Math.max(H * 0.0042, HH * 0.0038);
       if (A.kind === 'rewarded') {
-        if (A.t >= total) ui.button(ctx, 'COLLECT REWARD', W / 2, by, ui.fitPx(['COLLECT REWARD'], W * 0.8, bpx), () => this.close(true), { color: col.yellow, box: true });
+        if (A.t >= total) ui.button(ctx, 'RECUPERER LA RECOMPENSE', W / 2, by, ui.fitPx(['RECUPERER LA RECOMPENSE'], W * 0.8, bpx), () => this.close(true), { color: col.yellow, hitW: W * 0.88, fx: 'primary' });
         else {
-          ui.text(ctx, 'REWARD IN ' + Math.ceil(total - A.t) + 'S', W / 2, by, bpx, '#f4f4f4', { align: 'center' });
-          ui.button(ctx, 'CLOSE (NO REWARD)', W / 2, by + HH * 0.08, ui.fitPx(['CLOSE (NO REWARD)'], W * 0.8, bpx * 0.7), () => this.close(false), { color: '#9a9a9a' });
+          ui.text(ctx, 'RECOMPENSE DANS ' + Math.ceil(total - A.t) + ' S', W / 2, by, ui.fitPx(['RECOMPENSE DANS 60 S'], W * 0.9, bpx), '#f4f4f4', { align: 'center' });
+          ui.button(ctx, 'FERMER (SANS RECOMPENSE)', W / 2, by + HH * 0.08, ui.fitPx(['FERMER (SANS RECOMPENSE)'], W * 0.8, bpx * 0.7), () => this.close(false), { color: '#9a9a9a', hitW: W * 0.88, fx: 'back' });
         }
       } else {
         const skip = this.cfg.skipAfter;
-        if (A.t >= skip || A.t >= total) ui.button(ctx, 'CLOSE AD  X', W / 2, by, bpx, () => this.close(true), { box: true });
-        else ui.text(ctx, 'CLOSE IN ' + Math.ceil(skip - A.t) + 'S', W / 2, by, bpx, '#bdbdbd', { align: 'center' });
+        if (A.t >= skip || A.t >= total) ui.button(ctx, 'FERMER LA PUB  X', W / 2, by, ui.fitPx(['FERMER LA PUB  X'], W * 0.8, bpx), () => this.close(true), { hitW: W * 0.88, fx: 'back' });
+        else ui.text(ctx, 'FERMETURE DANS ' + Math.ceil(skip - A.t) + ' S', W / 2, by, ui.fitPx(['FERMETURE DANS 60 S'], W * 0.9, bpx), '#bdbdbd', { align: 'center' });
         if (A.t >= total) this.close(true);
       }
     }

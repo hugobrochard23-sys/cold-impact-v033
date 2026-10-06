@@ -48,7 +48,9 @@
       this.hud = new CC.HUD(this.hudCanvas);
       this.ui = new CC.UI(this);
       this.ads = new CC.Ads(this);   // v030 : publicités d'exemple (src/ui/ads.js)
+      this.tutorial = new CC.Tutorial(this);   // v033-ux : premier vol guidé (src/ui/tutorial.js)
       this.input = new CC.Input(this, this.hudCanvas);
+      this.domUi = CC.DomButtons.attach(this);   // v033-ux : boutons PAUSE / PASSER posés sur le jeu
       this.rig = new CC.CameraRig(this.camera, this);
       this.rocket = new CC.Rocket(this);
       this.trails = new CC.Trails(this);   // v026
@@ -59,13 +61,15 @@
       // v023 : volumes enregistrés (SOUND / MUSIC sur OFF) appliqués dès le démarrage, avant même que le son soit créé
       this.audio.setVolumes(CC.CONFIG.audio.master, this.settings.music, this.settings.sfx);
       this.applyCosmetic();
-      // v031 : retour d'un paiement Stripe (?paid=1&utm_content=<cosmétique>) → cosmétique débloqué, message dans le menu
-      if (!this.testMode && CC.Shop.handleReturn) { const msg = CC.Shop.handleReturn(this); if (msg) { this.notice = msg; this.noticeT = 6; } }
+      if (CC.Haptics) CC.Haptics.setLevel(this.settings.vibration);
+      // v031 : retour d'un paiement Stripe (?paid=1&utm_content=<cosmétique>) → cosmétique débloqué ; la boutique s'ouvre sur sa célébration (start)
+      if (!this.testMode && CC.Shop.handleReturn) this.paidReturn = CC.Shop.handleReturn(this);
       this.state = 'BOOT'; this.paused = false;
       this.runTime = 0; this.lastSpeed = 0; this.acc = 0; this.fps = 60; this.flash = 0;
       this.shoulder = CC.Models.shoulderLauncher(); this.shoulder.visible = false; this.camera.add(this.shoulder);
       this.tripod = null;
       window.addEventListener('resize', () => this.resize());
+      window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 120));
       this.resize();
     }
 
@@ -123,7 +127,7 @@
       this.save.owned = this.save.owned || {};
       this.save.owned.stock = true;
       if (!this.save.owned[this.save.equipped]) this.save.equipped = 'stock';
-      this.settings = Object.assign({ sensitivity: CC.CONFIG.input.sensitivity, invertY: false, music: CC.CONFIG.audio.music, sfx: CC.CONFIG.audio.sfx, postfx: true, graphics: 'auto' }, (s && s.settings) || {});
+      this.settings = Object.assign({ sensitivity: CC.CONFIG.input.sensitivity, invertY: false, music: CC.CONFIG.audio.music, sfx: CC.CONFIG.audio.sfx, postfx: true, graphics: 'auto', vibration: 2, touchSens: 1 }, (s && s.settings) || {});
       if (this.testMode) this.settings.postfx = this.params.get('postfx') !== '0';
     }
     writeSave() {
@@ -131,7 +135,7 @@
       this.save.settings = this.settings;
       try { localStorage.setItem('coldimpact.save', JSON.stringify(this.save)); } catch (e) { /* stockage indisponible */ }
     }
-    applySettings() { this.audio.setVolumes(CC.CONFIG.audio.master, this.settings.music, this.settings.sfx); this.writeSave(); }
+    applySettings() { this.audio.setVolumes(CC.CONFIG.audio.master, this.settings.music, this.settings.sfx); if (CC.Haptics) CC.Haptics.setLevel(this.settings.vibration); this.writeSave(); }
 
     // ---------- cosmétiques ----------
     applyCosmetic() { this.rocket.setSkin(CC.Skins.get(this.save.equipped)); }
@@ -151,8 +155,17 @@
       return true;
     }
 
+    // marges des zones système (encoche, coins arrondis, barre d'accueil) en pixels CSS, lues sur la sonde #cc-safe (style.css)
+    readSafe() {
+      const el = document.getElementById('cc-safe');
+      if (!el) return (this.safe = { t: 0, b: 0, l: 0, r: 0 });
+      const cs = getComputedStyle(el), n = (v) => Math.max(0, parseFloat(v) || 0);
+      return (this.safe = { t: n(cs.paddingTop), b: n(cs.paddingBottom), l: n(cs.paddingLeft), r: n(cs.paddingRight) });
+    }
+
     // ---------- dimensions (16:9 letterbox) ----------
     resize() {
+      this.readSafe();
       const w = window.innerWidth, h = window.innerHeight, ar = CC.CONFIG.render.aspect;
       // v022 : écran tactile → plein écran (couché comme debout) ; ordinateur → zone 16:9 centrée
       const touch = !!(CC.Touch && CC.Touch.active);
@@ -278,7 +291,7 @@
       if (!pm || ++pm.frames < 2) return;
       this.pendingMission = null;
       try { this.startGenerated(pm.diffId, pm.seed, pm.opts); this.ui.overlay = null; } catch (e) {
-        console.error(e); this.ui.overlay = 'missions'; this.notice = 'GENERATION FAILED - TRY ANOTHER SEED'; this.noticeT = 4;
+        console.error(e); this.ui.overlay = 'missions'; this.ui.toast('GENERATION IMPOSSIBLE - ESSAIE UNE AUTRE GRAINE', '#ff9a3a', 3.4);
       }
     }
 
@@ -375,7 +388,6 @@
       if (host && host.userData.bore) this.launchFx = { t: 0, host, bore: host.userData.bore, base: host.position.clone() };
       this.rig.startFlight();
       this.state = 'FLIGHT'; this.flightTime = 0;
-      if (CC.Touch && CC.Touch.active) this.settings.tutorialFlights = (this.settings.tutorialFlights || 0) + 1;   // v030 : tutoriel limité aux 3 premiers vols
       this.telemetry.event('fire', { runTime: this.runTime });
     }
 
@@ -393,7 +405,7 @@
         this.audio.play('boom', c); this.audio.play('target');
         this.style.bombSmash(rocket.vel.length());
         this.endlessRun.addFuel(CC.CONFIG.endless.fuelTarget);
-        if (CC.Touch && CC.Touch.active && CC.Haptics) CC.Haptics.tick('warn');
+        if (CC.Haptics) CC.Haptics.medium();
         this.telemetry.event('targetHit', { target: t.type, speed: +rocket.vel.length().toFixed(2), runTime: +this.runTime.toFixed(3) });
         return;
       }
@@ -405,6 +417,7 @@
       if (variant === 'cyan') { this.flash = 1; this.flashColor = '#dff8ff'; }
       this.rig.startImpact(c); this.rig.shake = 1;
       this.audio.play('boom', c); this.audio.play('target');
+      if (CC.Haptics) CC.Haptics.heavy();   // v033-ux : cible détruite = gros impact
       this.style.bombSmash(speed);
       rocket.active = false; rocket.mesh.visible = false; rocket.light.intensity = 0; rocket.rope.visible = false;
       this.telemetry.event('targetHit', { target: t.type, speed: +speed.toFixed(2), runTime: +this.runTime.toFixed(3) });
@@ -426,6 +439,7 @@
       this.audio.play('boom', pos);
       this.style.dropCombos();
       this.rig.startImpact(pos); this.rig.shake = 0.8;
+      if (CC.Haptics) CC.Haptics.heavy();   // v033-ux : explosion de la roquette
       this.state = 'CRASHED'; this.impactT = 0;
       this.telemetry.event('crash', { kind, pos: pos.toArray().map((v) => +v.toFixed(2)), runTime: +this.runTime.toFixed(3) });
     }
@@ -447,7 +461,7 @@
       return L.generated ? L.difficulty === 'hard' : this.levelIndex >= CC.Levels.length - 3;
     }
 
-    respawnMsg() { return CC.Touch && CC.Touch.active ? 'TAP TO RESPAWN' : 'PRESS FIRE TO RESPAWN AT LAUNCHER'; }
+    respawnMsg() { return CC.Touch && CC.Touch.active ? 'TOUCHE POUR REAPPARAITRE' : 'CLIC POUR REAPPARAITRE AU LANCEUR'; }
 
     // v020 : niveau de menace des tirs anti-aériens, 0 (premier niveau) → 1 (dernier) ; AUTOMAP : selon la difficulté
     aaThreat() {
@@ -467,14 +481,14 @@
 
     finishLevel() {
       const id = this.level.id, best = this.save.best[id];
-      const r = { title: this.level.mode === 'targets' ? 'ALL TARGETS DESTROYED' : 'TARGET DESTROYED', time: this.runTime, style: this.style.total, newRecord: false };
+      const r = { title: this.level.mode === 'targets' ? 'TOUTES LES CIBLES DETRUITES' : 'CIBLE DETRUITE', time: this.runTime, style: this.style.total, newRecord: false };
       if (!best || this.runTime < best.time) { this.save.best[id] = { time: this.runTime, style: this.style.total }; r.newRecord = !!best || true; }
       r.bestTime = this.save.best[id].time;
       if (this.generated && this.mission) this.recordMission(r);
       if (this.generated && this.mission && this.mission.challenge) this.recordChallenge(r);   // v033
+      if (this.tutorial.active) { this.writeSave(); this.tutorial.finish(false); return; }   // v033-ux : le tutoriel s'achève sur le menu, sans écran de résultats
       this.results = r; this.state = 'RESULTS'; this.centerMsg = null;
       if (this.ads) this.ads.onLevelEnd();
-      if (!this.settings.tutorialDone) this.settings.tutorialDone = true;   // v030 : premier niveau terminé → plus de tutoriel
       this.writeSave();
       this.input.exitLock();
       this.telemetry.event('results', { time: r.time, style: r.style });
@@ -517,7 +531,7 @@
     trophyCount(diff) { const s = this.challengeStars(diff); return CC.CONFIG.challenge.trophies.filter((t) => s >= t).length; }
 
     toMenu() {
-      this.paused = false; this.ui.overlay = null;
+      this.paused = false; this.ui.overlay = null; this.ui.modal = null; this.tutorial.active = false;
       this.input.exitLock();
       if (this.levelIndex === undefined || !this.level) this.loadLevel(0);
       this.state = 'MENU'; this.centerMsg = null; this.rocket.reset(); this.shoulder.visible = false;
@@ -535,15 +549,14 @@
       this.audio.init(); this.audio.resume();
       const inGame = ['AIM', 'FLIGHT', 'IMPACT', 'CRASHED', 'RESPAWN'].includes(this.state);
       if (k === 'Escape') {
-        if (this.ui.overlay) { this.ui.overlay = null; return; }
+        // clavier : confort sur ordinateur (chaque écran a aussi son bouton RETOUR / REPRENDRE au toucher)
+        if (this.ui.back()) return;
         if (this.state === 'RESULTS') { this.toMenu(); return; }
-        if (inGame) { if (this.paused) this.toMenu(); else this.pause(); }
+        if (inGame) { if (this.paused) this.resume(); else this.pause(); }
       } else if (k === 'Tab') {
-        this.ui.overlay = this.ui.overlay === 'settings' ? null : 'settings';
-        if (this.ui.overlay && inGame) this.pause();
+        if (this.ui.overlay === 'settings') this.ui.back(); else { this.ui.open('settings'); if (inGame) this.pause(); }
       } else if (k === 'F1') {
-        this.ui.overlay = this.ui.overlay === 'binds' ? null : 'binds';
-        if (this.ui.overlay && inGame) this.pause();
+        if (this.ui.overlay === 'help') this.ui.back(); else { this.ui.open('help'); if (inGame) this.pause(); }
       } else if (k === 'KeyR' && (inGame || this.state === 'RESULTS')) {
         this.paused = false; this.ui.overlay = null; this.restartLevel(); if (!this.testMode) this.input.requestLock();
       } else if (k === 'KeyN' && this.state === 'RESULTS' && !this.generated && this.levelIndex < CC.Levels.length - 1) {
@@ -628,7 +641,7 @@
     // L'affichage est dans le HUD, qui lit this.warn.
     updateWarnings(dt, rk) {
       const W = this.warn || (this.warn = { missile: false, lowFuel: false, beepT: 0 });
-      const buzz = () => { if (CC.Touch && CC.Touch.active && CC.Haptics) CC.Haptics.tick('warn'); };
+      const buzz = () => { if (CC.Haptics) CC.Haptics.medium(); };
       const missile = this.missiles.some((m) => m.alive && m.pos.distanceTo(rk.pos) < CC.CONFIG.aa.warnDist);
       if (missile) {
         if (!W.missile) { buzz(); W.beepT = 0; }
@@ -657,12 +670,13 @@
 
     tick(dt) {
       if (this.ads) this.ads.update(dt);
-      if (this.noticeT > 0 && (this.noticeT -= dt) <= 0) this.notice = null;
       if (this.pendingMission) this.runPendingMission();
-      if (!this.paused && this.state !== 'BOOT') this.update(dt);
+      if (this.tutorial.active) this.tutorial.update(dt);
+      if (!this.paused && this.state !== 'BOOT') this.update(dt * this.tutorial.timeScale());   // tutoriel : ralenti tant que le geste demandé n'est pas fait
       else { this.input.poll(0); this.rig.update(0); }
       this.render(performance.now() / 1000);
       this.hud.draw(this, dt);
+      if (this.domUi) this.domUi.update();
       if (this.telemetry.enabled) this.recordFrame();
     }
 
@@ -686,13 +700,15 @@
       // v032 : lien partagé ?mission=<graine>&diff=<difficulté> → écran du générateur avec cette graine
       const ms = CC.Gen.parseSeed(this.params.get('mission'));
       if (ms !== null) { this.ui.overlay = 'missions'; this.ui.seedChoice = ms; this.ui.diffChoice = this.params.get('diff'); }
+      else if (this.paidReturn) this.ui.openShop(this.paidReturn);   // retour de paiement : la boutique s'ouvre sur la célébration
+      else if (!this.settings.tutorialDone) this.tutorial.start();   // v033-ux : tout premier lancement → premier vol guidé
       const Q = CC.CONFIG.quality;
       let last = performance.now(), fpsAcc = 0, fpsN = 0;
       const loop = (now) => {
         requestAnimationFrame(loop);
         // v030 : cadence plafonnée — 60 images/s en jeu sur écran tactile (écrans 120 Hz), 20 dans les menus et la pause
         const idle = this.paused || this.state === 'MENU' || this.state === 'RESULTS' || this.hidden;
-        const cap = this.hidden ? 4 : idle ? Q.pausedFps : (CC.Touch && CC.Touch.active ? Q.maxFpsTouch : 0);
+        const cap = this.hidden ? 4 : idle ? (this.ui.fast() ? Q.maxFpsTouch : Q.pausedFps) : (CC.Touch && CC.Touch.active ? Q.maxFpsTouch : 0);   // v033-ux : 60 images/s dès que l'interface s'anime (appui, défilement, aperçu)
         if (cap && now - last < 1000 / cap - 2) return;
         const real = (now - last) / 1000, dt = Math.min(0.05, real); last = now;
         fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { this.fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }

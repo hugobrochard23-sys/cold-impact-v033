@@ -18,21 +18,26 @@
     draw(game, dt) {
       const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
       this.portrait = !!game.portrait;
-      this.refH = this.portrait ? Math.min(H, W * 0.95) : H;
+      // zones système (encoche, barre d'accueil) : marges en pixels du canvas ; l'interface et les éléments de bord les respectent
+      const pr = game.renderer ? game.renderer.getPixelRatio() : 1, sf = game.safe || { t: 0, b: 0, l: 0, r: 0 };
+      const sa = this.sa = { l: Math.round(sf.l * pr), t: Math.round(sf.t * pr), r: Math.round(sf.r * pr), b: Math.round(sf.b * pr) };
+      const Wc = W - sa.l - sa.r, Hc = H - sa.t - sa.b;
+      this.refH = this.portrait ? Math.min(Hc, Wc * 0.95) : Hc;
       ctx.clearRect(0, 0, W, H);
       ctx.imageSmoothingEnabled = false;
       const s = game.state;
       const inGame = ['AIM', 'FLIGHT', 'IMPACT', 'CRASHED', 'RESPAWN'].includes(s) || (s === 'RESULTS');
-      if (inGame && game.level && game.showHud) this.drawGame(game);
+      if (inGame && game.level && game.showHud && !game.paused) this.drawGame(game);   // v033-ux : en pause, l'écran est celui du menu
       if (game.ui) {
-        // v017 : en vertical, les menus (pensés en 16:9) sont dessinés dans une bande centrée de hauteur refH
-        const Hv = this.refH, off = Math.round((H - Hv) / 2);
-        game.ui.portrait = this.portrait; game.ui.offsetY = off; game.ui.fullH = H;
-        ctx.save(); ctx.translate(0, off);
-        game.ui.draw(ctx, game, W, Hv);
+        // v017 : en vertical, les menus (pensés en 16:9) sont dessinés dans une bande centrée de hauteur refH ; v033-ux : dans la zone sûre
+        const Hv = this.refH, off = Math.round((Hc - Hv) / 2);
+        const ui = game.ui;
+        ui.portrait = this.portrait; ui.offsetY = off; ui.fullH = Hc; ui.safeL = sa.l; ui.safeT = sa.t; ui.safeR = sa.r; ui.safeB = sa.b;
+        ctx.save(); ctx.translate(sa.l, sa.t + off);
+        ui.draw(ctx, game, Wc, Hv);
         ctx.restore();
       }
-      if (game.debug) this.text('FPS ' + Math.round(game.fps), 0.01 * W, 0.965 * H, 0.0018, '#8f8', {});
+      if (game.debug) this.text('FPS ' + Math.round(game.fps), 0.01 * W + sa.l, 0.965 * H - sa.b, 0.0018, '#8f8', {});
     }
 
     drawGame(game) {
@@ -100,33 +105,12 @@
       if (v !== 'B' && !lite) this.drawPopups(game);   // OBSERVÉ : aucune annonce de style dans les séquences au HUD B
       this.drawIndicators(game);
       this.drawMissileWarning(game);
-      if (lite) this.drawTutorial(game, W, H);
-      const msg = game.centerMsg || (lite && game.state === 'AIM' ? 'TAP TO FIRE    HOLD: BOOST' : null);
+      const tut = game.tutorial && game.tutorial.active;
+      if (tut) game.tutorial.draw(this.ctx, W, H, this);   // v033-ux : tutoriel interactif (src/ui/tutorial.js)
+      const msg = tut ? null : game.centerMsg || (lite && game.state === 'AIM' ? 'TOUCHE POUR TIRER    MAINTIENS : BOOST' : null);
       // v032 : réduit si le message dépasse la largeur de l'écran (brief de mission long, téléphone en portrait)
       const cpx = msg ? Math.min(C.center.px, 0.94 * W / Math.max(1, CC.Font.measure(msg, this.refH))) : 0;
       if (msg && !game.paused) this.text(msg, 0.5 * W, C.center.y * H, cpx, '#101010', { align: 'center', outline: '#f0f0f0' });   // v024 : pas par-dessus le menu pause
-    }
-
-    /* v030 : tutoriel du premier vol (écran tactile, jusqu'au premier niveau terminé) : trois consignes courtes, une à la
-     * fois, dans un cartouche en haut de l'écran (hors de la trajectoire), avec un pictogramme animé du geste. */
-    drawTutorial(game, W, H) {
-      if (game.settings.tutorialDone || (game.settings.tutorialFlights || 0) > 3 || game.state !== 'FLIGHT' || game.paused) return;
-      const t = game.flightTime || 0, steps = [['DRAG TO STEER', 'drag'], ['HOLD FINGER: BOOST', 'hold'], ['FINGER ON AN EDGE: TURN', 'edge']];
-      const i = Math.floor(t / 3.2);
-      if (i >= steps.length) return;
-      const [label, kind] = steps[i], k = (t % 3.2) / 3.2, a = Math.min(1, k * 6, (1 - k) * 6);
-      const ctx = this.ctx, px = this.refH * 0.0042, w = CC.Font.measure(label, px) + px * 14, h = px * 16, x = W / 2 - w / 2, y = H * 0.23;
-      ctx.globalAlpha = a;
-      ctx.fillStyle = 'rgba(10,10,14,0.72)'; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = '#fdfd02'; ctx.lineWidth = Math.max(1, px * 0.5); ctx.strokeRect(x, y, w, h);
-      // pictogramme : doigt (rond) qui glisse, reste posé (anneau qui grossit), ou se place au bord
-      const cx = x + px * 6, cy = y + h / 2, r = px * 2.2;
-      ctx.fillStyle = '#f4f4f4';
-      const ox = kind === 'drag' ? Math.sin(k * Math.PI * 4) * px * 2.5 : kind === 'edge' ? px * 2.5 : 0;
-      ctx.beginPath(); ctx.arc(cx + ox, cy, r, 0, Math.PI * 2); ctx.fill();
-      if (kind === 'hold') { ctx.strokeStyle = '#fdfd02'; ctx.beginPath(); ctx.arc(cx, cy, r + px * (1 + 2 * ((k * 3) % 1)), 0, Math.PI * 2); ctx.stroke(); }
-      this.text(label, x + px * 11, y + h / 2 - px * 3.5, 0.0042, '#f4f4f4', {});
-      ctx.globalAlpha = 1;
     }
 
     // Jauge d'essence (v009) : longueur du cadre proportionnelle au réservoir du niveau, remplissage = essence restante.
@@ -134,11 +118,11 @@
      * difficulté, essence gagnée (+2,4 S) au-dessus de la jauge, alarme ALTITUDE! au-dessus du plafond du couloir. */
     drawEndless(game, W, H, C, col, lite) {
       const run = game.endlessRun, rec = (game.save.endless && game.save.endless.best) || 0, d = Math.round(run.dist);
-      const y0 = (lite ? 0.045 : C.timer.y) * H;
+      const y0 = (lite ? 0.045 : C.timer.y) * H + this.sa.t;   // sous l'encoche
       this.text(d + ' M', 0.5 * W, y0, lite ? 0.0052 : 0.0046, col.white, { align: 'center', outline: '#101010' });
       if (rec > 0) this.text(d > rec ? 'NOUVEAU RECORD' : 'RECORD ' + rec + ' M', 0.5 * W, y0 + this.refH * (lite ? 0.068 : 0.098), 0.0021, d > rec ? col.yellow : '#d8d8d8', { align: 'center', outline: '#101010' });
       const D = run.stageLabel();
-      this.text(D.label, (this.portrait ? 0.04 : 0.03) * W, y0 + (lite ? 0 : this.refH * 0.1), 0.0024, D.color, { outline: '#101010' });
+      this.text(D.label, (this.portrait ? 0.04 : 0.03) * W + this.sa.l, y0 + (lite ? 0 : this.refH * 0.1), 0.0024, D.color, { outline: '#101010' });
       if (run.fuelGainT > 0 && game.state === 'FLIGHT') {
         const F = C.fuel, a = Math.min(1, run.fuelGainT / 0.4);
         this.ctx.globalAlpha = a;
@@ -148,20 +132,27 @@
       if (run.altT > 0 && game.state === 'FLIGHT' && Math.floor(run.altT * 6) % 2 === 0) this.text('ALTITUDE! DESCENDS', 0.5 * W, 0.3 * H, 0.0036, col.red, { align: 'center', outline: '#101010' });
     }
 
+    // rectangle de la jauge d'essence (px du canvas) : au doigt, plus épaisse, et au-dessus de la barre d'accueil du téléphone
+    fuelRect(game) {
+      const W = this.canvas.width, H = this.canvas.height, F = CC.CONFIG.hud.fuel, rc = CC.CONFIG.rocket, sa = this.sa || { l: 0, b: 0 };
+      const max = game.rocket.fuelMax || (game.level.fuel || rc.fuelDefault), lite = document.body.classList.contains('cc-touch');
+      const h = (F.y1 - F.y0) * H * (lite ? 1.4 : 1);
+      return { x: F.x0 * W + sa.l, y: F.y0 * H - sa.b - (lite ? h * 0.25 : 0), w: F.w * W * Math.min(1, max / rc.fuelBarMax), h, labelY: F.labelY * H - sa.b, max };
+    }
+
     drawFuel(game) {
       if (game.state !== 'AIM' && game.state !== 'FLIGHT') return;
-      const W = this.canvas.width, H = this.canvas.height, ctx = this.ctx, F = CC.CONFIG.hud.fuel, col = CC.CONFIG.hud.colors;
+      const ctx = this.ctx, F = CC.CONFIG.hud.fuel, col = CC.CONFIG.hud.colors;
       const rk = game.rocket, rc = CC.CONFIG.rocket;
-      const max = rk.fuelMax || (game.level.fuel || rc.fuelDefault);
+      const R = this.fuelRect(game), max = R.max;
       const fuel = rk.active ? rk.fuel : max;
       const frac = U.clamp(fuel / max, 0, 1);
-      const x0 = F.x0 * W, y0 = F.y0 * H, h = (F.y1 - F.y0) * H;
-      const w = F.w * W * Math.min(1, max / rc.fuelBarMax);
+      const x0 = R.x, y0 = R.y, h = R.h, w = R.w;
       const boostLeft = rk.active ? rc.ignitionDelay + rc.freeBoost - rk.age : rc.freeBoost;
       let label = 'FUEL ' + U.formatDec(fuel, 1) + 'S', color = frac < 0.25 ? col.red : col.orange;
       if (rk.active && rk.freeBoost) { label = 'FREE BOOST ' + U.formatDec(Math.max(0, boostLeft), 1) + 'S'; color = col.blue; }
       else if (rk.active && fuel <= 0) { label = 'NO FUEL'; color = col.red; }
-      if (!document.body.classList.contains('cc-touch') || label === 'NO FUEL') this.text(label, x0, F.labelY * H, F.px, color);   // v022 : au doigt, la barre suffit
+      if (!document.body.classList.contains('cc-touch') || label === 'NO FUEL') this.text(label, x0, R.labelY, F.px, color);   // v022 : au doigt, la barre suffit
       ctx.fillStyle = col.outline; ctx.fillRect(x0 - 2, y0 - 2, w + 4, h + 4);
       ctx.fillStyle = '#7d7d7d'; ctx.fillRect(x0, y0, w, h);
       ctx.fillStyle = color; ctx.fillRect(x0, y0, w * frac, h);

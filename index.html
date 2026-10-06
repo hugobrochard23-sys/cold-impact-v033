@@ -3,12 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>COLD IMPACT</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="game"></div>
+  <div id="cc-safe"></div>
   <noscript>COLD IMPACT nécessite JavaScript et WebGL.</noscript>
 
   <!-- Moteur 3D (three.js r149, copie locale : fonctionne hors ligne et en double-cliquant sur index.html) -->
@@ -39,8 +44,15 @@
   <script src="src/systems/style.js"></script>
   <script src="src/audio/audio.js"></script>
   <script src="src/ui/hud.js"></script>
+  <!-- Interface (v033-ux) : composants tactiles → écrans (menu, pause/résultats, réglages) → boutique → tutoriel -->
+  <script src="src/ui/widgets.js"></script>
   <script src="src/ui/menu.js"></script>
+  <script src="src/ui/endscreens.js"></script>
+  <script src="src/ui/settings.js"></script>
+  <script src="src/ui/thumbs.js"></script>
   <script src="src/ui/shop.js"></script>
+  <script src="src/ui/tutorial.js"></script>
+  <script src="src/ui/dombuttons.js"></script>
   <script src="src/ui/ads.js"></script>
   <script src="src/input/input.js"></script>
   <script src="src/input/haptics.js"></script>

@@ -237,6 +237,15 @@
         case 'popup': this.tone('square', 660 * (param || 1), 990 * (param || 1), 0.06, 0.08); break;
         case 'toggle': this.tone('square', 220, 180, 0.08, 0.06); break;
         case 'ui': this.tone('square', 520, 520, 0.06, 0.05); break;
+        // v033-ux : sons d'interface — appui, retour, changement d'onglet, équipement, déblocage (fanfare), refus, étape réussie
+        case 'tap': this.tone('triangle', 780, 700, 0.09, 0.06); break;
+        case 'back': this.tone('triangle', 560, 380, 0.08, 0.08); break;
+        case 'tab': this.tone('square', 880, 880, 0.045, 0.035); break;
+        case 'equip': this.tone('triangle', 660, 660, 0.1, 0.07); this.tone('triangle', 990, 990, 0.1, 0.14, 0.07); break;
+        case 'unlock': [523, 659, 784, 1047].forEach((f, i) => this.tone('square', f, f, 0.09, 0.16, i * 0.09));
+          this.sweep(2000, 6000, 'highpass', 1, 0.12, 0.5, 0.3); break;
+        case 'denied': this.tone('square', 170, 130, 0.09, 0.1); this.tone('square', 150, 110, 0.09, 0.14, 0.11); break;
+        case 'chime': this.tone('triangle', 784, 784, 0.1, 0.1); this.tone('triangle', 1175, 1175, 0.1, 0.22, 0.1); break;
         case 'target': this.tone('square', 523, 523, 0.1, 0.1); this.tone('square', 784, 784, 0.1, 0.18, 0.1); break;
         // design : départ de coup de canon de char (claquement, déflagration grave, écho) ; roquette d'hélicoptère (sifflement)
         case 'tankFire': this.noiseHit(2500, 'highpass', 0.7, 0.35, 0.04); this.tone('sine', 110, 38, 0.55, 0.45); this.sweep(1800, 300, 'lowpass', 0.7, 0.45, 0.5);
