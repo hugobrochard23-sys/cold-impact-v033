@@ -1,62 +1,106 @@
 # COLD IMPACT
 
-> **Instantané v033** (27 septembre 2026) du dépôt `hugobrochard23-sys/cold-impact.project`, figé tel quel pour pouvoir le rejouer et le tester.
-> **▶ Jouer à cette version : https://hugobrochard23-sys.github.io/cold-impact-v033/** — menu à trois boutons (CLASSIQUE, DÉFI, BOUTIQUE), couloir infini, 9 niveaux, générateur de missions.
-> Sur ordinateur, ajouter `#touch` à l'adresse pour afficher les commandes tactiles. Le lien « Jouer en ligne » plus bas pointe vers le dépôt d'origine, qui sert la version la plus récente.
-> Les deux sites partagent le même domaine `github.io` donc la même sauvegarde du navigateur : pour un premier lancement propre, utiliser une fenêtre privée.
+Jeu web 3D (HTML / WebGL) : on pilote un missile qui ne s'arrête jamais, on frôle les murs pour gagner du style et on fonce sur la
+cible. Inspiré de la bande-annonce du jeu *Dumbfire*. Tous les assets (textures pixel-art, modèles, police, sons, musique) sont
+**originaux** et générés par le code ; aucun fichier du jeu d'origine n'est utilisé.
 
-Prototype jouable en HTML/WebGL, inspiré de la bande-annonce du jeu *Dumbfire*.
-On pilote un missile qui ne s'arrête jamais : il suit le réticule, frôle les murs pour gagner du style et doit toucher la cible.
+> **Version v033-ux (branche `mobile-ux`)** : le jeu v033 (menu CLASSIQUE / DÉFI / BOUTIQUE, couloir infini, 9 niveaux, générateur de
+> missions) **repensé mobile-first** : tutoriel interactif, navigation et boutons tactiles, vibrations centralisées, boutique refaite avec
+> aperçus 3D, réglages au doigt, zones système (encoche, barre d'accueil). **Le gameplay n'a pas changé** (le pilote automatique
+> refait les mêmes temps qu'en v033). Détail : [analysis/MOBILE_UX.md](analysis/MOBILE_UX.md).
 
-Tous les assets (textures pixel-art, modèles, police, sons, musique) sont **originaux** et générés par le code.
-Aucun fichier du jeu d'origine n'est utilisé, et le matériel de référence (vidéo, images extraites) n'est pas publié ici.
+## Technologies
 
-**▶ Jouer en ligne (ordinateur, téléphone, tablette) : https://hugobrochard23-sys.github.io/cold-impact.project/**
+- **three.js r149** (copie locale `assets/lib/three.min.js`) pour la 3D ; **JavaScript classique** (scripts chargés par `index.html`,
+  pas de bundler, pas de build) : le jeu marche aussi en double-cliquant sur `index.html`.
+- Interface dessinée dans un **canvas 2D** avec une police pixel originale (`src/ui/font.js`) ; deux boutons HTML (pause, passer le
+  tutoriel) posés par-dessus le jeu.
+- Son : **Web Audio** (sons et musique synthétisés). Vibrations : API **Vibration** du navigateur (Android).
+- Sauvegarde : `localStorage` (clé `coldimpact.save`). Outils de test : Node.js, puppeteer-core, ffmpeg (facultatifs, `npm install`).
+
+## Lancer le jeu
+
+```bash
+node tools/serve.js 8123      # puis ouvrir http://localhost:8123
+```
+
+Aucune dépendance pour jouer. Sur ordinateur, ajouter `#touch` à l'adresse (`http://localhost:8123/#touch`) pour simuler un
+téléphone : commandes tactiles, interface plein écran, boutons tactiles. Pour tester une encoche / une barre d'accueil, dans la
+console du navigateur : `document.documentElement.style.setProperty('--cc-safe-top', '47px')` (puis `--cc-safe-bottom`, `-left`,
+`-right`) et redimensionner la fenêtre.
+
+## Commandes utiles
+
+| Commande | Rôle |
+|---|---|
+| `node tools/serve.js 8123` | serveur statique local |
+| `/?test=1&autopilot=1&level=1` | banc de test : le pilote automatique joue le niveau N (9 niveaux), sans interface |
+| `/?test=1&autopilot=1&endless=<graine>` | idem pour le mode CLASSIQUE (`tools/endlessplay.js`) |
+| `/?test=1&autopilot=1&gen=hard&seed=1234` | idem pour une mission générée |
+| `/?mission=<graine>&diff=<difficulté>` | lien partageable d'une mission générée |
+| `/?showfps` ou réglage AFFICHER LES FPS | compteur d'images par seconde |
+| `node tools/gentest.js 100 all --determinism` | test du générateur de missions (400 cartes) |
+| `npm run record -- vXXX` / `npm run compare -- vXXX` | enregistrement et comparaison à la vidéo de référence |
+
+## Structure du projet
+
+```text
+index.html, style.css, game.js    point d'entrée, mise en page, démarrage
+src/config.js                     TOUS les paramètres réglables (annotés)
+src/core/                         game.js (boucle, états, sauvegarde, niveaux), quality.js (graphismes AUTO), util.js
+src/input/                        input.js (souris/clavier/pointeur + pilote auto), touch.js (gestes en vol), haptics.js (vibrations)
+src/ui/                           interface — voir ci-dessous
+src/audio/audio.js                sons et musique synthétisés (dont les sons d'interface)
+src/world/, src/entities/, src/physics/, src/rendering/, src/systems/   monde, niveaux, générateur, roquette, cibles, rendu
+tools/, tests/, analysis/         outils de test, protocole, historique (VERSIONS.md) et rapports
+```
+
+Interface (`src/ui/`), de bas en haut :
+
+| Fichier | Rôle |
+|---|---|
+| `widgets.js` | **kit tactile** : pointeur unique (souris / doigt), boutons à états (normal, survol, enfoncé, désactivé, verrouillé), onglets, interrupteurs, curseurs, listes défilantes, toasts, dialogue de confirmation, icônes, retour sensoriel (son + vibration) |
+| `menu.js` | cœur `CC.UI`, menu d'accueil, DÉFI, missions libres |
+| `endscreens.js` | pause et écrans de résultats (compteurs, étoiles animées) |
+| `settings.js` | réglages et aide « COMMENT JOUER » |
+| `shop.js`, `thumbs.js` | boutique, et aperçus 3D des cosmétiques (rendu du vrai modèle dans une cible de rendu) |
+| `tutorial.js` | tutoriel : tableau `STEPS` à modifier pour changer les consignes |
+| `dombuttons.js` | boutons HTML PAUSE / PASSER |
+| `hud.js`, `font.js`, `ads.js` | affichage en vol, police pixel, publicités d'exemple |
+
+## Mobile-first (v033-ux)
+
+L'objectif : un jeu pensé pour le doigt, qui reste jouable à la souris sur ordinateur. Règles suivies par toute l'interface :
+
+- **Aucune action essentielle ne dépend du clavier** : chaque écran a son bouton RETOUR / REPRENDRE (Échap, Tab, F1, R restent
+  des raccourcis de confort sur ordinateur).
+- **Zones tactiles ≥ 48 points**, texte lisible, bouton qui s'enfonce au toucher ; l'action part au **relâchement** (glisser hors du
+  bouton annule) ; un toucher dans le vide ne déclenche plus rien.
+- **Retour sensoriel centralisé** : `ui.feedback('tap' | 'back' | 'tab' | 'equip' | 'unlock' | 'denied' | …)` joue le son et la
+  vibration assortis. Vibrations (`CC.Haptics`) : `light()` navigation, `medium()` récompense / équipement, `heavy()` achat,
+  explosion, cible détruite ; `success()` et `error()` ; réglage OFF / LÉGÈRE / MOYENNE / FORTE dans RÉGLAGES.
+- **Zones système** : l'interface et la jauge d'essence respectent l'encoche et la barre d'accueil (`env(safe-area-inset-*)`, lues
+  par `Game.readSafe`).
+- **Premier lancement** : tutoriel guidé sur le niveau CITY (tirer, diriger, boost, essence, virage au bord, cible), au ralenti
+  tant que le geste demandé n'est pas fait ; bouton PASSER ; rejouable depuis RÉGLAGES ; enregistré (`settings.tutorialDone`).
+- **Boutique** : grand aperçu 3D tournant du cosmétique choisi, onglets de rareté, grille défilante de grandes cartes (équipé,
+  possédé, verrouillé + prix), boutons ÉQUIPER / ACHETER / PUB 1 MIN, confirmation avant paiement, célébration au déblocage.
+
+### Ce qui reste à faire / à vérifier sur un vrai téléphone
+
+Voir la section « Points restants » de [analysis/MOBILE_UX.md](analysis/MOBILE_UX.md) : vibrations réelles (Android / iPhone), son,
+zones système réelles, fluidité sur un téléphone d'entrée de gamme, paiement Stripe (lien à renseigner), bouton retour du système.
+
+## Reprendre le développement
+
+1. Lire `analysis/VERSIONS.md` (historique, une entrée par version) et `analysis/MOBILE_UX.md` (audit et choix de la refonte mobile).
+2. Tous les réglages de gameplay sont dans `src/config.js`. Pour ajouter un écran : une méthode `drawXxx(ctx, game, W, H)` sur
+   `CC.UI.prototype` + une entrée dans `UI.draw()` (`menu.js`) ; ses boutons passent par `placeButton` / `hitRect` (`widgets.js`).
+3. Avant chaque publication : jouer le menu, la boutique et une partie sur ordinateur **et** avec `#touch`, lancer le pilote
+   automatique (`?test=1&autopilot=1&level=N`) et vérifier que les temps n'ont pas bougé (CITY : 14,90 s).
+4. Le dépôt GitHub est la version de référence : `git pull` avant de modifier, un commit par changement, jamais de `git push --force`.
 
 ---
-
-## Jouer en ligne
-
-Le jeu est publié par **GitHub Pages** depuis la branche `main` (dossier racine) : chaque `git push` sur `main` met le
-site à jour automatiquement en une à deux minutes. Rien à installer ; sur téléphone, les commandes tactiles s'activent seules.
-
-## Télécharger et jouer hors ligne
-
-1. Sur la page GitHub du dépôt : bouton vert **Code → Download ZIP**, puis décompresser.
-   Ou en ligne de commande : `git clone` de l'adresse du dépôt.
-2. Double-cliquer sur `index.html`. Fonctionne hors ligne, sans installation : three.js est copié dans `assets/lib`.
-
-Si le navigateur bloque les fichiers locaux, lancer le petit serveur fourni puis ouvrir `http://localhost:8123` :
-
-```bash
-node tools/serve.js
-```
-
-Compatible Chrome, Edge, Firefox et Safari récents (WebGL requis).
-
-## Travailler à plusieurs
-
-Le dépôt GitHub `hugobrochard23-sys/cold-impact.project` (public) est la version de référence : **la version GitHub
-prime toujours sur celle d'un ordinateur**. Tout le monde peut le lire et le télécharger ; pour y envoyer des
-modifications (`git push`), il faut être invité comme collaborateur par Hugo (Settings → Collaborators).
-
-```bash
-git clone https://github.com/hugobrochard23-sys/cold-impact.project.git
-cd cold-impact.project
-node tools/serve.js 8123
-```
-
-Puis ouvrir `http://localhost:8123`. À chaque séance :
-
-1. **Avant de modifier** : `git pull` (récupère le travail des autres).
-2. Faire une modification à la fois, la tester dans le navigateur.
-3. **Juste après** : `git add -A`, `git commit -m "ce qui a changé"`, `git pull` puis `git push`.
-4. En cas de conflit, garder la version GitHub et refaire son changement par-dessus ; jamais de `git push --force`.
-
-Tous les réglages sont dans `src/config.js` (chaque valeur est commentée) ; l'historique des changements est dans
-`analysis/VERSIONS.md` (à compléter à chaque version). Sur ordinateur, `#touch` à la fin de l'adresse affiche les
-commandes tactiles. Banc de test sans affichage : `?test=1&autopilot=1&level=N` (le pilote automatique doit finir
-chaque niveau après une modification du vol, de l'essence ou des ennemis).
 
 ## Contrôles
 
@@ -74,15 +118,14 @@ chaque niveau après une modification du vol, de l'essence ou des ennemis).
 | F1 | liste des touches |
 | H | masquer le HUD |
 
-**Sur téléphone ou tablette (v024)** : plein écran, aucun bouton sauf la pause. **Toucher** : tir (animation du tube) ou
+**Sur téléphone ou tablette (v024)** : plein écran, aucun bouton sauf la pause (et PASSER pendant le tutoriel). **Toucher** : tir (animation du tube) ou
 réapparition. **Glisser** en vol : diriger ; doigt tenu dans la **bande gauche / droite** de l'écran : virage sans fin
 (haut / bas : glissé seulement). **Appui long** (doigt immobile ≥ 0,4 s) : boost tant que le doigt reste posé (il peut alors
 bouger). Boost relâché : pendant **0,6 s** (fine barre jaune sous l'essence), reposer le doigt relance le boost aussitôt.
-Mini vibration à chaque toucher en partie. Au lanceur, la vue ne bouge pas. Pas de curseur. **Pause** : reprendre, son, musique, vibration (OFF / LOW / MEDIUM /
-HIGH), recommencer, niveau suivant, menu. Vibrations : Android (API Vibration) ; iPhone : petits « tics » seulement jusqu'à
+Mini vibration à chaque toucher en partie. Au lanceur, la vue ne bouge pas. Pas de curseur. **Pause** : reprendre, son, musique, recommencer, niveau suivant, réglages, menu principal (avec confirmation) ; la vibration (OFF / LÉGÈRE / MOYENNE / FORTE), la sensibilité du glissé et les graphismes se règlent dans RÉGLAGES (engrenage du menu d'accueil). Vibrations : Android (API Vibration) ; iPhone : petits « tics » seulement jusqu'à
 iOS 26.4 (Apple a bloqué la méthode à partir d'iOS 26.5, Safari n'ayant pas l'API Vibration).
 
-Dans les menus et la boutique, tout se fait à la souris (survol pour sélectionner, clic pour valider) ; **Échap** revient en arrière.
+Dans les menus, la boutique et les réglages, tout se fait **au doigt ou à la souris** : chaque écran a son bouton RETOUR (flèche en haut à gauche), les boutons s'enfoncent au toucher et valident au relâchement ; les touches Échap (retour / pause), Tab (réglages) et F1 (aide) ne sont que des raccourcis (v033-ux).
 
 **Moteur et essence (v009, v010).** Au tir, la roquette a **0,5 s de poussée gratuite** (jauge bleue « FREE BOOST ») ;
 ensuite elle ne pousse que si **Espace** est maintenue, et chaque seconde de poussée brûle 1 s d'essence (jauge orange en bas à gauche,
@@ -231,6 +274,13 @@ Le menu principal ouvre une boutique : 20 apparences de roquette (plus la roquet
 on ne gagne plus d'argent en jouant** : chaque cosmétique se débloque **en payant 2,29 €** (tous au même prix) **ou en
 regardant une minute de publicité en entier** (4 annonces de 15 s ; fermer avant la fin ne débloque rien).
 
+**Présentation (v033-ux).** Un grand aperçu 3D tournant du cosmétique choisi (nom, rareté, état : ÉQUIPÉE / POSSÉDÉE / À DÉBLOQUER), des onglets
+TOUS / COMMUN / RARE / ULTRA, puis une grille de grandes cartes qui défile (coche jaune = équipée, verte = possédée, cadenas = à
+débloquer + prix). Toucher une carte la **choisit** (aperçu immédiat, rien n'est acheté ni équipé) ; l'action se fait avec les boutons
+de l'aperçu : ÉQUIPER, ou ACHETER (confirmation, puis lien Stripe) / PUB 1 MIN. Un déblocage lance une célébration (confettis, fanfare,
+vibration forte) et équipe le cosmétique. Les catégories sont une liste (`TABS` dans `src/ui/shop.js`) : seules les apparences de roquette
+existent aujourd'hui, d'autres (flammes, thèmes…) s'ajouteront en ajoutant une entrée et sa liste de fiches.
+
 | Catégorie | Fiches |
 |---|---|
 | STOCK (offerte) | la roquette d'origine |
@@ -276,8 +326,9 @@ cold-impact/
 │   │                     endless.js (v033 : mode CLASSIQUE, couloir infini par tronçons),
 │   │                     gen/ (v032 : générateur de missions — graine, profils, biomes, disposition, gabarits,
 │   │                     mission, navigation, validation, construction ; voir analysis/GENERATOR.md)
-│   ├── input/            input.js (souris/clavier + pilote automatique de test)
-│   ├── ui/               font.js (police pixel originale), hud.js (3 variantes), menu.js, shop.js (boutique)
+│   ├── input/            input.js (souris/clavier/pointeur + pilote automatique de test), touch.js (gestes), haptics.js (vibrations)
+│   ├── ui/               font.js (police pixel), hud.js (3 variantes), widgets.js (kit tactile), menu.js, endscreens.js, settings.js,
+│   │                     shop.js + thumbs.js (boutique), tutorial.js, dombuttons.js, ads.js
 │   └── audio/            audio.js (sons et musique synthétisés, Web Audio)
 ├── assets/lib/           three.min.js (r149)
 ├── tests/                PROTOCOLE.md, reference_measurements.json
@@ -288,7 +339,7 @@ cold-impact/
 ```
 
 Machine à états : `BOOT → MENU → AIM (1re personne) → FLIGHT → IMPACT | CRASHED → RESPAWN → … → RESULTS`,
-plus PAUSE et les surcouches SETTINGS / BINDS.
+plus PAUSE et les surcouches de l'interface (`ui.overlay` : settings, help, defi, missions, shop, ad…) avec une pile de navigation (`ui.open` / `ui.back`).
 
 ## Systèmes principaux et paramètres
 

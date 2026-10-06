@@ -548,3 +548,28 @@ montagne (le relief est désormais testé par les vérifications exactes) ; gén
 - Menus vérifiés sur ordinateur et téléphone simulé (375 × 812) : accueil, DÉFI (onglets, grille, NIVEAUX), partie
   CLASSIQUE, résultats CLASSIQUE et DÉFI ; aucune erreur dans la console.
 
+## v033-ux — refonte mobile-first (interface, tutoriel, boutique, vibrations), gameplay inchangé
+
+**Changements (à la demande d'Hugo ; audit et choix complets : [MOBILE_UX.md](MOBILE_UX.md)) :**
+- **Kit tactile** (`src/ui/widgets.js`) : pointeur unique souris + doigt, boutons à états (normal, survol, enfoncé, désactivé,
+  verrouillé) qui valident au relâchement, zones ≥ 48 points, défilement avec inertie, curseurs, interrupteurs, onglets, toasts,
+  dialogue de confirmation ; `ui.feedback()` = son + vibration assortis. L'interface (`menu.js`, `endscreens.js`, `settings.js`,
+  `shop.js`) est réécrite dessus ; plus aucune action essentielle ne dépend du clavier (Échap / Tab / F1 restent des raccourcis).
+- **Tutoriel interactif** (`tutorial.js`) : premier vol guidé sur CITY (tirer, diriger, boost, essence, virage au bord, cible),
+  ralenti tant que le geste n'est pas fait, PASSER, rejouable depuis RÉGLAGES, enregistré ; remplace les trois bulles de la v030.
+- **Boutique** : aperçu 3D tournant (`thumbs.js`), onglets de rareté, grille défilante de grandes cartes, ÉQUIPER / ACHETER /
+  PUB 1 MIN, confirmation avant paiement, célébration au déblocage.
+- **Réglages** accessibles au doigt (engrenage du menu, bouton de la pause) : sons, vibrations (OFF / LÉGÈRE / MOYENNE / FORTE),
+  sensibilité, inversion, graphismes, aide « COMMENT JOUER ». Pause et résultats refaits (confirmation avant de quitter, compteurs
+  et étoiles animés). Interface entièrement en français.
+- **Haptics** centralisés (`haptics.js`) : `light` / `medium` / `heavy` / `success` / `error` / `unlock` ; vibration à l'explosion
+  et à la destruction d'une cible. **Sons d'interface** : tap, retour, onglet, équipement, déblocage, refus, carillon.
+- **Zones système** : marges de l'encoche et de la barre d'accueil (`#cc-safe`, `Game.readSafe`) appliquées à l'interface, à la
+  jauge d'essence et aux boutons HTML ; boutons PAUSE / PASSER en vrais éléments HTML (`dombuttons.js`).
+
+**Défauts corrigés :** réglages et aide inaccessibles sans clavier ; clic dans le vide qui relançait la partie ; boutons sans état
+« enfoncé » ; boutique illisible au doigt et équipement involontaire ; appui perdu pendant l'animation d'ouverture d'un écran.
+
+**Vérification :** parcours complets au navigateur (voir MOBILE_UX.md §3) ; pilote automatique : les 9 niveaux et deux couloirs
+CLASSIQUE donnent exactement les mêmes résultats que la v033 d'origine (CITY 14,90 s / 847 … NIGHT CANYON 12,97 s / 2213 ;
+couloirs 5000 → 3736 m MUR, 12919 → 2228 m MUR). **Non vérifié** : vibrations réelles, son, zones système réelles, paiement Stripe.
