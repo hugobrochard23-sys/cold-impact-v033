@@ -46,6 +46,8 @@
       this.fastUntil = 0;
     },
 
+    shade(hex, k) { return shade(hex, k); },   // couleur #rrggbb × k (ombres, reflets)
+
     // ---------- mesures ----------
     isTouch() { return document.body.classList.contains('cc-touch'); },
     pixelRatio() { return this.game.renderer ? this.game.renderer.getPixelRatio() : 1; },
@@ -216,7 +218,10 @@
       ctx.save();
       if (o.disabled) ctx.globalAlpha *= 0.4;
       if (lip && !press) { ctx.fillStyle = shade(col, 0.45); ctx.fillRect(r.x, r.y + lip, r.w, r.h - lip); }
-      if (o.solid) { ctx.fillStyle = press ? shade(col, 0.82) : col; ctx.fillRect(fx, fy, fw, fh); }
+      if (o.solid) {
+        ctx.fillStyle = press ? shade(col, 0.82) : col; ctx.fillRect(fx, fy, fw, fh);
+        ctx.fillStyle = 'rgba(255,255,255,' + (press ? 0.1 : 0.3) + ')'; ctx.fillRect(fx + 2, fy + 2, fw - 4, Math.max(2, fh * 0.07));   // reflet : le bouton paraît bombé
+      }
       else {
         ctx.fillStyle = o.fill || 'rgba(8,10,14,0.74)'; ctx.fillRect(fx, fy, fw, fh);
         if (press || o.hot) { ctx.fillStyle = col; ctx.globalAlpha *= press ? 0.3 : 0.14; ctx.fillRect(fx, fy, fw, fh); ctx.globalAlpha = o.disabled ? 0.4 : 1; }

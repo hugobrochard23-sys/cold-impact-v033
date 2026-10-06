@@ -573,3 +573,15 @@ montagne (le relief est désormais testé par les vérifications exactes) ; gén
 **Vérification :** parcours complets au navigateur (voir MOBILE_UX.md §3) ; pilote automatique : les 9 niveaux et deux couloirs
 CLASSIQUE donnent exactement les mêmes résultats que la v033 d'origine (CITY 14,90 s / 847 … NIGHT CANYON 12,97 s / 2213 ;
 couloirs 5000 → 3736 m MUR, 12919 → 2228 m MUR). **Non vérifié** : vibrations réelles, son, zones système réelles, paiement Stripe.
+
+### v033-ux2 — boutique habillée (même direction artistique que le HUD)
+
+Aucun changement de fonctionnement : seule la présentation de `src/ui/shop.js` (et un reflet sur les boutons pleins, `widgets.js`).
+- **Fond** : dégradé nuit, trame de points, voile sombre sur les bords ; **barre de collection** (une case par cosmétique, à la
+  couleur de sa rareté), compteur en pastille, titre en relief.
+- **Aperçu** : scène éclairée (faisceau, sol, ombre, étincelles pour rare / ultra rare), crochets de visée dans les angles comme
+  les repères de cibles, pastilles de rareté (+ étoiles) et d'état, nom avec ombre portée, description, étincelles à l'équipement.
+- **Cartes** : roquette sur son socle avec halo de rareté, bandeau nom / prix, étoiles de rareté, pastille coche / cadenas,
+  carte choisie légèrement soulevée avec crochets, ombre portée ; **onglets** avec compteur possédés / total.
+- **Célébration** : rayons tournants à la couleur de rareté, étoiles de rareté, ombres de texte.
+
